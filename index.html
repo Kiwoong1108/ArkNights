@@ -502,12 +502,30 @@ function gameRender(){
   // 우상단: 시간 + 처치
   const tl=Math.max(0,GAME_LEN-g.time),mm=String(Math.floor(g.time/60)).padStart(2,'0'),ss=String(Math.floor(g.time%60)).padStart(2,'0');
   text(`${mm}:${ss}`,VW-18,40,28,'#e9e6dc','right');text(`처치 ${g.kills}`,VW-18,70,12,'#9aa0b4','right');
+  drawSkillBar();
   if(g.paused&&!g.over){ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,VW,VH);const w=300,h=130,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);text('일시정지',VW/2,y+34,20,'#e8c06a','center');text('ESC  계속하기',VW/2,y+70,12,'#e9e6dc','center');text('Q  로비로 돌아가기',VW/2,y+94,12,'#9aa0b4','center');}
   if(g.over){ctx.fillStyle='rgba(5,6,10,.7)';ctx.fillRect(0,0,VW,VH);const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);
     text(g.over.win?'생존 성공':'쓰러졌습니다',VW/2,y+38,24,g.over.win?'#e8c06a':'#e9e6dc','center');
     text(`생존 시간  ${mm}:${ss}`,VW/2,y+82,12,'#e9e6dc','center');text(`처치  ${g.kills}   ·   레벨  ${p.lvl}`,VW/2,y+106,12,'#e9e6dc','center');
     drawKeyE(VW/2-62,y+170,ePressT>0,1);text('로비로 돌아가기',VW/2-34,y+152,12,'#9aa0b4','left');}
   ePressT=Math.max(0,ePressT-1/60);
+}
+
+/* 스킬 칸: Q·E·R 일반 스킬, Z 아이덴티티(중앙 위). 아이콘은 추후 디자인 예정이라 반투명 공란 */
+const SKILL_SLOTS=[{key:'Q',code:'KeyQ'},{key:'E',code:'KeyE'},{key:'R',code:'KeyR'}];
+function drawSlot(x,y,size,key,code,identity){
+  const down=keys.has(code)&&G&&!G.paused&&!G.over;
+  ctx.fillStyle=down?'rgba(120,140,190,.38)':'rgba(16,20,32,.42)';ctx.fillRect(x,y,size,size);
+  ctx.fillStyle=identity?'rgba(232,192,106,.55)':'rgba(205,210,225,.38)';
+  ctx.fillRect(x,y,size,2);ctx.fillRect(x,y+size-2,size,2);ctx.fillRect(x,y,2,size);ctx.fillRect(x+size-2,y,2,size);
+  ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(x+2,y+2,size-4,size*.35);
+  const kw=18;ctx.fillStyle='rgba(8,9,14,.75)';ctx.fillRect(x+3,y+3,kw,kw);
+  text(key,x+3+kw/2,y+3+kw/2+1,12,identity?'#e8c06a':'#e9e6dc','center',false);
+}
+function drawSkillBar(){
+  const sz=VW<520?48:56,gap=10,id=sz+10,total=sz*3+gap*2,x0=(VW-total)/2,y=VH-sz-18;
+  SKILL_SLOTS.forEach((k,i)=>drawSlot(x0+i*(sz+gap),y,sz,k.key,k.code,false));
+  drawSlot((VW-id)/2,y-id-10,id,'Z','KeyZ',true);
 }
 
 /* ---------------- 공통 루프 ---------------- */
