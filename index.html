@@ -120,6 +120,10 @@ function saveBinds(){try{localStorage.setItem('arknights.binds',JSON.stringify(B
 const BIND_LABEL={s1:'스킬 1',s2:'스킬 2',s3:'스킬 3',id:'아이덴티티'};
 const KEYNAMES={Space:'Space',ShiftLeft:'L Shift',ShiftRight:'R Shift',ControlLeft:'L Ctrl',ControlRight:'R Ctrl',AltLeft:'L Alt',AltRight:'R Alt',Tab:'Tab',CapsLock:'Caps',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',Enter:'Enter',Backspace:'Back'};
 function keyName(c){if(!c)return '-';if(c.startsWith('Key'))return c.slice(3);if(c.startsWith('Digit'))return c.slice(5);if(c.startsWith('Numpad'))return 'Num '+c.slice(6);return KEYNAMES[c]||c;}
+const OPT={wasd:false};
+try{const o=JSON.parse(localStorage.getItem('arknights.opts')||'null');if(o&&typeof o.wasd==='boolean')OPT.wasd=o.wasd;}catch(err){}
+function saveOpts(){try{localStorage.setItem('arknights.opts',JSON.stringify(OPT));}catch(err){}}
+const WASD=['KeyW','KeyA','KeyS','KeyD'];
 const skillCodes=()=>[BIND.s1,BIND.s2,BIND.s3,BIND.id];
 let settingsOpen=false,capture=null,captureMsg='';
 addEventListener('keydown',e=>{
@@ -141,8 +145,9 @@ addEventListener('blur',()=>keys.clear());
 /* 인게임에서는 스킬에 배정된 키가 이동에 쓰이지 않는다 (예: W를 스킬로 쓰면 위 이동은 방향키) */
 const K=c=>keys.has(c)&&!(scene==='game'&&skillCodes().includes(c))?1:0;
 function axis(){
-  let x=(K('KeyD')||K('ArrowRight'))-(K('KeyA')||K('ArrowLeft'));
-  let y=(K('KeyS')||K('ArrowDown'))-(K('KeyW')||K('ArrowUp'));
+  const w=OPT.wasd; // WASD 이동은 설정에서 켰을 때만
+  let x=((w&&K('KeyD'))||K('ArrowRight'))-((w&&K('KeyA'))||K('ArrowLeft'));
+  let y=((w&&K('KeyS'))||K('ArrowDown'))-((w&&K('KeyW'))||K('ArrowUp'));
   if(touch.active){x=touch.vx;y=touch.vy;}
   const m=Math.hypot(x,y);if(m>1){x/=m;y/=m;}return {x,y,m:Math.min(1,m)};
 }
@@ -154,10 +159,10 @@ let ui=[];const mouse={x:-1,y:-1};
 function uiHit(x,y){for(let i=ui.length-1;i>=0;i--){const b=ui[i];if(x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h){b.fn();return true;}}return false;}
 function button(x,y,w,h,label,fn,opt={}){
   const hov=fn&&mouse.x>=x&&mouse.x<x+w&&mouse.y>=y&&mouse.y<y+h;
-  ctx.fillStyle=opt.active?'rgba(232,192,106,.18)':opt.disabled?'rgba(20,22,30,.7)':hov?'rgba(70,78,104,.9)':'rgba(30,34,48,.9)';ctx.fillRect(x,y,w,h);
-  ctx.fillStyle=opt.active?'#e8c06a':opt.disabled?'#3a3e4b':hov?'#b8bdcc':'#5a5f72';
+  ctx.fillStyle=opt.danger?'rgba(200,56,74,.22)':opt.active?'rgba(232,192,106,.18)':opt.disabled?'rgba(20,22,30,.7)':hov?'rgba(70,78,104,.9)':'rgba(30,34,48,.9)';ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=opt.danger?'#e66a78':opt.active?'#e8c06a':opt.disabled?'#3a3e4b':hov?'#b8bdcc':'#5a5f72';
   ctx.fillRect(x,y,w,2);ctx.fillRect(x,y+h-2,w,2);ctx.fillRect(x,y,2,h);ctx.fillRect(x+w-2,y,2,h);
-  text(label,x+w/2,y+h/2+1,opt.size||12,opt.color||(opt.disabled?'#6b7080':opt.active?'#e8c06a':'#e9e6dc'),'center',false);
+  text(label,x+w/2,y+h/2+1,opt.size||12,opt.color||(opt.danger?'#ff9aa5':opt.disabled?'#6b7080':opt.active?'#e8c06a':'#e9e6dc'),'center',false);
   if(fn)ui.push({x,y,w,h,fn});if(hov)uiHover=true;
 }
 let uiHover=false;
@@ -382,7 +387,7 @@ function lobbyRender(){
   text('현재 캐릭터',30,34,12,'#9aa0b4');text(current.name,30,56,20,'#e8c06a');text(current.wep,126,57,12,'#c9c9d2');
   if(L.sign){const w=Math.min(460,VW-32),h=172,x=(VW-w)/2,y=VH-h-24;pixPanel(x,y,w,h);
     text('조작 안내',x+20,y+26,16,'#e8c06a');
-    const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['K','스킬창'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
+    const rows=[[OPT.wasd?'WASD / 방향키':'방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['K','스킬창'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
   if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
   if(skillWin.open)drawSkillWin();
@@ -648,16 +653,20 @@ function drawSkillWin(){
 /* 로비 설정 창: 키 설정 탭 */
 function drawSettings(){
   ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
-  const w=Math.min(440,VW-32),h=344,x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);
+  const w=Math.min(440,VW-32),h=402,x=Math.round((VW-w)/2),y=Math.max(8,Math.round((VH-h)/2));
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('설정',x+22,y+28,16,'#e8c06a');
   button(x+w-44,y+12,30,30,'X',()=>{settingsOpen=false;capture=null;});
   button(x+20,y+54,100,32,'키 설정',()=>{},{active:true});
   ctx.fillStyle='#3a3e4b';ctx.fillRect(x+20,y+90,w-40,2);
   const kw=Math.min(132,w*.34);
-  ['s1','s2','s3','id'].forEach((k,i)=>{const ry=y+108+i*44;
-    text(BIND_LABEL[k],x+30,ry+16,12,k==='id'?'#e8c06a':'#e9e6dc');
-    button(x+w-kw-20,ry,kw,32,keyName(BIND[k]),()=>{capture=k;captureMsg='';});});
+  text('WASD 이동',x+30,y+124,12,'#e9e6dc');
+  button(x+w-kw-20,y+108,kw,32,OPT.wasd?'켜기':'끄기',()=>{OPT.wasd=!OPT.wasd;saveOpts();},{active:OPT.wasd});
+  ctx.fillStyle='#2a2d38';ctx.fillRect(x+20,y+150,w-40,2);
+  ['s1','s2','s3','id'].forEach((k,i)=>{const ry=y+162+i*44,clash=OPT.wasd&&WASD.includes(BIND[k]);
+    text(BIND_LABEL[k],x+30,ry+16,12,clash?'#ff9aa5':k==='id'?'#e8c06a':'#e9e6dc');
+    if(clash&&w>380)text('이동 키와 겹침',x+w-kw-30,ry+16,12,'#e66a78','right');
+    button(x+w-kw-20,ry,kw,32,keyName(BIND[k]),()=>{capture=k;captureMsg='';},{danger:clash});});
   button(x+20,y+h-48,110,30,'기본값으로',()=>{Object.assign(BIND,BIND_DEF);saveBinds();});
   text('ESC로 닫기',x+w-22,y+h-33,12,'#6b7080','right');
   if(capture){ // 키 입력 대기 팝업
