@@ -732,7 +732,7 @@ function drawSkillDrag(){
 const BOSS_META={"walk0": {"ax": 93, "ay": 144}, "walk1": {"ax": 68, "ay": 145}, "walk2": {"ax": 75, "ay": 146}, "walk3": {"ax": 84, "ay": 150}, "swing0": {"ax": 79, "ay": 127}, "swing1": {"ax": 64, "ay": 116}, "swing2": {"ax": 100, "ay": 134}, "swing3": {"ax": 51, "ay": 143}, "chop0": {"ax": 53, "ay": 170}, "chop1": {"ax": 50, "ay": 170}, "chop2": {"ax": 71, "ay": 174}, "chop3": {"ax": 53, "ay": 123}, "grab0": {"ax": 50, "ay": 142}, "grab1": {"ax": 74, "ay": 161}};
 const YS=.6, BSC=2.5;
 const BOSS_HP=4000;
-const ARENA={x0:-925,x1:925,y0:-1000,y1:1000}; // 보스 약 5마리 크기
+const ARENA={x0:-750,x1:750,y0:-750,y1:750}; // 1500 x 1500
 const PATTERNS=['swing','slam1','slam2','slam3','grab'];
 const PATTERN_NAME={swing:'가로 휘두르기',slam1:'세로 찍기 1 · 3연속 찍기',slam2:'세로 찍기 2 · 안전지대 폭발',slam3:'세로 찍기 3 · 십자 폭발',grab:'잡기'};
 const gd=(ax,ay,bx,by)=>Math.hypot(bx-ax,(by-ay)/YS);
@@ -775,7 +775,7 @@ function queuePattern(B){
   if(pat==='swing'){
     let tele;
     Q.push(walkTo(B,320,5));
-    Q.push(A(.9,{start(){bossFacePlayer(B);tele={k:'sector',x:B.fx,y:B.fy,r:640,a:gang(B.fx,B.fy,G.p.x,G.p.y),arc:Math.PI*1.15};B.tele.push(tele);B.frame='swing0';},
+    Q.push(A(.9,{start(){bossFacePlayer(B);tele={k:'sector',x:B.fx,y:B.fy,r:480,a:gang(B.fx,B.fy,G.p.x,G.p.y),arc:Math.PI*1.15};B.tele.push(tele);B.frame='swing0';},
       update(dt,k){B.frame=k<.5?'swing0':'swing1';}}));
     Q.push(A(.35,{start(){B.tele=B.tele.filter(x=>x!==tele);B.frame='swing2';
       const p=G.p,d=gd(B.fx,B.fy,p.x,p.y);let da=gang(B.fx,B.fy,p.x,p.y)-tele.a;da=Math.atan2(Math.sin(da),Math.cos(da));
@@ -784,10 +784,11 @@ function queuePattern(B){
   }else if(pat==='grab'){
     let tele;
     Q.push(walkTo(B,240,5));
-    Q.push(A(1.0,{start(){bossFacePlayer(B);tele={k:'rect',x:B.fx,y:B.fy,a:gang(B.fx,B.fy,G.p.x,G.p.y),len:340,w:230};B.tele.push(tele);B.frame='grab0';}}));
+    // 시전 순간 방향 고정: 240도 노란 부채꼴, 보스 뒤쪽으로 돌아가야 피할 수 있음
+    Q.push(A(1.0,{start(){bossFacePlayer(B);tele={k:'sector',x:B.fx,y:B.fy,r:400,a:gang(B.fx,B.fy,G.p.x,G.p.y),arc:Math.PI*4/3,yellow:1};B.tele.push(tele);B.frame='grab0';}}));
     Q.push(A(.45,{start(){B.tele=B.tele.filter(x=>x!==tele);B.frame='grab1';
-      const p=G.p,e=armEnd(tele.x,tele.y,tele.a,tele.len);
-      if(segDist(p.x,p.y,tele.x,tele.y,e.x,e.y)<tele.w/2&&!p.lock){ // 잡힘
+      const p=G.p;let da=gang(tele.x,tele.y,p.x,p.y)-tele.a;da=Math.atan2(Math.sin(da),Math.cos(da));
+      if(gd(tele.x,tele.y,p.x,p.y)<tele.r&&Math.abs(da)<tele.arc/2&&!p.lock){ // 잡힘
         p.lock={k:'held'};p.z=0;B.holdDown=false;
         const slamDown=()=>A(.25,{start(){B.frame='chop2';B.holdDown=true;hurtPlayer(14,true);G.shake=14;const h=holdPos(B);crater(h.x,h.y+4,80);shockRing(h.x,h.y,120);}});
         const lift=()=>A(.35,{start(){B.frame='chop3';B.holdDown=false;}});
@@ -872,7 +873,8 @@ function drawDecals(){
     ctx.restore();}
 }
 function drawTele(t){
-  const pulse=t.lock?.55+.45*Math.sin(T*30):.55+.25*Math.sin(T*10),fill=`rgba(230,40,55,${(t.lock?.32:.2)*pulse+.08})`,line=`rgba(255,${t.lock?120:70},85,${.75*pulse+.2})`;
+  const pulse=t.lock?.55+.45*Math.sin(T*30):.55+.25*Math.sin(T*10);
+  const fill=t.yellow?`rgba(240,200,40,${.22*pulse+.08})`:`rgba(230,40,55,${(t.lock?.32:.2)*pulse+.08})`,line=t.yellow?`rgba(255,220,80,${.75*pulse+.2})`:`rgba(255,${t.lock?120:70},85,${.75*pulse+.2})`;
   ctx.save();
   if(t.k==='circle'){groundPath(()=>{ctx.beginPath();ctx.arc(t.x,t.y/YS,t.r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=line;ctx.lineWidth=4;ctx.stroke();});}
   else if(t.k==='sector'){groundPath(()=>{ctx.beginPath();ctx.moveTo(t.x,t.y/YS);ctx.arc(t.x,t.y/YS,t.r,t.a-t.arc/2,t.a+t.arc/2);ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=line;ctx.lineWidth=4;ctx.stroke();});}
