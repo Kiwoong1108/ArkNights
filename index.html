@@ -167,6 +167,7 @@ cv.addEventListener('pointerdown',e=>{
   cv.focus();mouse.x=e.offsetX;mouse.y=e.offsetY;
   if(skillWin.open&&scene==='lobby'&&!settingsOpen){
     const x=e.offsetX,y=e.offsetY,L=loadoutOf(current);
+    if(inRect(skillWin.headerRect,x,y)){skillWin.move={id:e.pointerId,x,y,ox:skillWin.ox,oy:skillWin.oy};return;}
     const sl=skillBarLayout().find(q=>inRect({x:q.x,y:q.y,w:q.size,h:q.size},x,y));
     if(sl&&L[sl.k]!=null){skillDrag={id:e.pointerId,idx:L[sl.k],from:sl.k,sx:x,sy:y,x,y,started:false};return;}
     if(inRect(skillWin.listRect,x,y)){
@@ -182,9 +183,11 @@ cv.addEventListener('pointerdown',e=>{
   touch.active=true;touch.id=e.pointerId;touch.ox=e.clientX;touch.oy=e.clientY;touch.vx=touch.vy=0;
 });
 cv.addEventListener('pointermove',e=>{mouse.x=e.offsetX;mouse.y=e.offsetY;
+  const mv=skillWin.move;if(mv&&mv.id===e.pointerId){skillWin.ox=mv.ox+e.offsetX-mv.x;skillWin.oy=mv.oy+e.offsetY-mv.y;}
   if(skillDrag&&skillDrag.id===e.pointerId){skillDrag.x=e.offsetX;skillDrag.y=e.offsetY;if(Math.hypot(skillDrag.x-skillDrag.sx,skillDrag.y-skillDrag.sy)>6)skillDrag.started=true;}
   const d=skillWin.drag;if(d&&d.id===e.pointerId){const dy=e.offsetY-d.y;if(Math.abs(dy)>5)d.moved=true;if(d.moved)skillWin.scroll=d.bar?d.s+dy*skillWin.ratio:d.s-dy;}if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
 const tEnd=e=>{
+  if(skillWin.move&&skillWin.move.id===e.pointerId)skillWin.move=null;
   if(skillDrag&&skillDrag.id===e.pointerId){const g=skillDrag;skillDrag=null;
     if(g.started){const sl=skillBarLayout().find(q=>inRect({x:q.x-6,y:q.y-6,w:q.size+12,h:q.size+12},e.offsetX,e.offsetY));
       if(sl&&slotAccepts(sl.k,skillsOf(current)[g.idx]))equip(current,sl.k,g.idx,g.from);
@@ -382,8 +385,8 @@ function lobbyRender(){
     const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['K','스킬창'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
   if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
-  if(!lobby.fx||lobby.fx.type!=='portal')drawSkillBar(current);
   if(skillWin.open)drawSkillWin();
+  if(!lobby.fx||lobby.fx.type!=='portal')drawSkillBar(current); // 스킬칸은 항상 창 위에
   drawSkillDrag();
   if(settingsOpen)drawSettings();
 }
@@ -570,7 +573,7 @@ function gameRender(){
 }
 
 /* 스킬창 (로비에서 K): 왼쪽 스킬 목록은 스크롤, 오른쪽은 고른 스킬의 정보 */
-const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null,cards:[],ratio:1};
+const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null,cards:[],ratio:1,ox:0,oy:0,move:null,headerRect:null};
 let skillDrag=null;
 /* 캐릭터별 장착 스킬: s1~s3 일반 스킬 칸, id 아이덴티티 칸 (아이덴티티 종류만) */
 function loadoutOf(cls){
@@ -602,9 +605,13 @@ function wrapText(str,x,y,maxW,lh,size,color){
 function slotBox(x,y,sz){ctx.fillStyle='rgba(16,20,32,.55)';ctx.fillRect(x,y,sz,sz);ctx.fillStyle='rgba(205,210,225,.35)';ctx.fillRect(x,y,sz,2);ctx.fillRect(x,y+sz-2,sz,2);ctx.fillRect(x,y,2,sz);ctx.fillRect(x+sz-2,y,2,sz);ctx.fillStyle='rgba(255,255,255,.05)';ctx.fillRect(x+2,y+2,sz-4,sz*.35);}
 function drawSkillWin(){
   const list=skillsOf(current);
-  ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
   const barTop=Math.min(...skillBarLayout().map(q=>q.y))-12;
-  const w=Math.min(780,VW-32),h=Math.max(260,Math.min(500,barTop-28)),x=Math.round((VW-w)/2),y=Math.max(12,Math.round((barTop-h)/2));
+  const w=Math.min(780,VW-32),h=Math.max(260,Math.min(500,barTop-28));
+  // 제목줄을 끌어서 이동: 기본 위치 + 끈 만큼, 화면 밖으로는 못 나가게
+  const x=Math.round(Math.max(0,Math.min(VW-w,(VW-w)/2+skillWin.ox))),y=Math.round(Math.max(0,Math.min(VH-h,Math.max(12,(barTop-h)/2)+skillWin.oy)));
+  skillWin.ox=x-(VW-w)/2;skillWin.oy=y-Math.max(12,(barTop-h)/2);
+  skillWin.headerRect={x,y,w:w-56,h:46};
+  if(inRect(skillWin.headerRect,mouse.x,mouse.y)||skillWin.move)cv.style.cursor='move',uiHover='move';
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('스킬',x+22,y+28,16,'#e8c06a');text(current.name,x+70,y+29,12,'#9aa0b4');
   if(w>520)text('목록의 스킬을 아래 스킬칸으로 끌어서 장착',x+w-56,y+29,12,'#6b7080','right');
@@ -708,7 +715,7 @@ function frame(now){
   screenXform();
   if(touch.on&&scene==='lobby'&&!settingsOpen&&!skillWin.open){const b=eBtn();ctx.globalAlpha=.85;ctx.fillStyle='rgba(20,22,30,.6)';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();drawKeyE(b.x,b.y+22,ePressT>0,1);ctx.globalAlpha=1;
     if(touch.active){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(touch.ox,touch.oy,50,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(touch.ox+touch.vx*50,touch.oy+touch.vy*50,20,0,Math.PI*2);ctx.fill();}}
-  cv.style.cursor=uiHover?'pointer':'default';
+  cv.style.cursor=uiHover==='move'?'move':uiHover?'pointer':'default';
   const a=trAlpha();if(a>0){ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,VW,VH);}
   requestAnimationFrame(frame);
 }
