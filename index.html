@@ -165,7 +165,16 @@ const inRect=(r,x,y)=>r&&x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h;
 cv.addEventListener('wheel',e=>{if(skillWin.open&&inRect(skillWin.listRect,e.offsetX,e.offsetY)){e.preventDefault();skillWin.scroll+=e.deltaY;}},{passive:false});
 cv.addEventListener('pointerdown',e=>{
   cv.focus();mouse.x=e.offsetX;mouse.y=e.offsetY;
-  if(skillWin.open&&inRect(skillWin.listRect,e.offsetX,e.offsetY)){skillWin.drag={id:e.pointerId,y:e.offsetY,s:skillWin.scroll,moved:false};return;}
+  if(skillWin.open&&scene==='lobby'&&!settingsOpen){
+    const x=e.offsetX,y=e.offsetY,L=loadoutOf(current);
+    const sl=skillBarLayout().find(q=>inRect({x:q.x,y:q.y,w:q.size,h:q.size},x,y));
+    if(sl&&L[sl.k]!=null){skillDrag={id:e.pointerId,idx:L[sl.k],from:sl.k,sx:x,sy:y,x,y,started:false};return;}
+    if(inRect(skillWin.listRect,x,y)){
+      const lr=skillWin.listRect,onBar=x>=lr.x+lr.w-14,card=skillWin.cards.find(c=>inRect(c,x,y));
+      const onIcon=card&&inRect({x:card.ix,y:card.iy,w:card.isz,h:card.isz},x,y);
+      if(card&&!onBar&&(e.pointerType==='mouse'||onIcon)){skillDrag={id:e.pointerId,idx:card.i,from:null,sx:x,sy:y,x,y,started:false};return;}
+      skillWin.drag={id:e.pointerId,y,s:skillWin.scroll,moved:false,bar:onBar};return;}
+  }
   if(uiHit(e.offsetX,e.offsetY))return;
   if(e.pointerType!=='touch')return;touch.on=true;
   if(settingsOpen||capture||(scene==='game'&&G&&(G.paused||G.over)))return;
@@ -173,8 +182,14 @@ cv.addEventListener('pointerdown',e=>{
   touch.active=true;touch.id=e.pointerId;touch.ox=e.clientX;touch.oy=e.clientY;touch.vx=touch.vy=0;
 });
 cv.addEventListener('pointermove',e=>{mouse.x=e.offsetX;mouse.y=e.offsetY;
-  const d=skillWin.drag;if(d&&d.id===e.pointerId){const dy=e.offsetY-d.y;if(Math.abs(dy)>5)d.moved=true;if(d.moved)skillWin.scroll=d.s-dy;}if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
+  if(skillDrag&&skillDrag.id===e.pointerId){skillDrag.x=e.offsetX;skillDrag.y=e.offsetY;if(Math.hypot(skillDrag.x-skillDrag.sx,skillDrag.y-skillDrag.sy)>6)skillDrag.started=true;}
+  const d=skillWin.drag;if(d&&d.id===e.pointerId){const dy=e.offsetY-d.y;if(Math.abs(dy)>5)d.moved=true;if(d.moved)skillWin.scroll=d.bar?d.s+dy*skillWin.ratio:d.s-dy;}if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
 const tEnd=e=>{
+  if(skillDrag&&skillDrag.id===e.pointerId){const g=skillDrag;skillDrag=null;
+    if(g.started){const sl=skillBarLayout().find(q=>inRect({x:q.x-6,y:q.y-6,w:q.size+12,h:q.size+12},e.offsetX,e.offsetY));
+      if(sl&&slotAccepts(sl.k,skillsOf(current)[g.idx]))equip(current,sl.k,g.idx,g.from);
+      else if(!sl&&g.from)unequip(current,g.from);}
+    else uiHit(e.offsetX,e.offsetY);}
   const d=skillWin.drag;if(d&&d.id===e.pointerId){skillWin.drag=null;if(!d.moved)uiHit(e.offsetX,e.offsetY);}
   if(e.pointerId===touch.id){touch.active=false;touch.vx=touch.vy=0;}};
 cv.addEventListener('pointerup',tEnd);cv.addEventListener('pointercancel',tEnd);
@@ -367,7 +382,9 @@ function lobbyRender(){
     const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['K','스킬창'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
   if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
+  if(!lobby.fx||lobby.fx.type!=='portal')drawSkillBar(current);
   if(skillWin.open)drawSkillWin();
+  drawSkillDrag();
   if(settingsOpen)drawSettings();
 }
 function vignette(s){const g=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*.35,VW/2,VH/2,Math.max(VW,VH)*.75);g.addColorStop(0,'rgba(4,6,14,0)');g.addColorStop(1,`rgba(4,6,14,${s})`);ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);}
@@ -542,7 +559,7 @@ function gameRender(){
   // 우상단: 시간 + 처치
   const tl=Math.max(0,GAME_LEN-g.time),mm=String(Math.floor(g.time/60)).padStart(2,'0'),ss=String(Math.floor(g.time%60)).padStart(2,'0');
   text(`${mm}:${ss}`,VW-18,40,28,'#e9e6dc','right');text(`처치 ${g.kills}`,VW-18,70,12,'#9aa0b4','right');
-  drawSkillBar();
+  drawSkillBar(g.cls);
   if(g.paused&&!g.over){ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,VW,VH);const w=280,h=176,x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);pixPanel(x,y,w,h);text('일시정지',VW/2,y+32,20,'#e8c06a','center');
     button(x+40,y+62,w-80,36,'계속하기',togglePause);button(x+40,y+110,w-80,36,'로비로 돌아가기',backToLobby);}
   if(g.over){ctx.fillStyle='rgba(5,6,10,.7)';ctx.fillRect(0,0,VW,VH);const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);
@@ -553,10 +570,28 @@ function gameRender(){
 }
 
 /* 스킬창 (로비에서 K): 왼쪽 스킬 목록은 스크롤, 오른쪽은 고른 스킬의 정보 */
-const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null};
+const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null,cards:[],ratio:1};
+let skillDrag=null;
+/* 캐릭터별 장착 스킬: s1~s3 일반 스킬 칸, id 아이덴티티 칸 (아이덴티티 종류만) */
+function loadoutOf(cls){
+  if(!cls.loadout){let l=null;try{l=JSON.parse(localStorage.getItem('arknights.loadout.'+cls.id)||'null');}catch(err){}
+    cls.loadout={s1:null,s2:null,s3:null,id:null};if(l)for(const k in cls.loadout)if(Number.isInteger(l[k]))cls.loadout[k]=l[k];}
+  return cls.loadout;
+}
+function saveLoadout(cls){try{localStorage.setItem('arknights.loadout.'+cls.id,JSON.stringify(cls.loadout));}catch(err){}}
+function slotAccepts(k,sk){return !!sk&&((k==='id')===(sk.type==='아이덴티티'));}
+function equip(cls,k,idx,from){
+  const L=loadoutOf(cls),prev=L[k];
+  for(const q of ['s1','s2','s3','id'])if(L[q]===idx)L[q]=null;
+  L[k]=idx;
+  if(from&&from!==k&&prev!=null&&slotAccepts(from,skillsOf(cls)[prev]))L[from]=prev; // 칸끼리 끌면 서로 교체
+  saveLoadout(cls);
+}
+function unequip(cls,k){loadoutOf(cls)[k]=null;saveLoadout(cls);}
+const slotOfSkill=(cls,i)=>['s1','s2','s3','id'].find(q=>loadoutOf(cls)[q]===i);
 // 예시용 빈 스킬. 캐릭터별 실제 스킬은 이 목록을 채우면 된다
 function skillsOf(cls){
-  if(!cls.skills)cls.skills=Array.from({length:8},(_,i)=>({name:`빈 스킬 ${i+1}`,lv:1,max:10,type:i===7?'아이덴티티':(i%3===2?'홀딩':'일반'),cd:'-',desc:'아직 설명이 없는 빈 스킬이에요. 스킬 이름, 아이콘, 효과를 정하면 이곳에 표시돼요.'}));
+  if(!cls.skills)cls.skills=Array.from({length:8},(_,i)=>({name:`빈 스킬 ${i+1}`,type:i===7?'아이덴티티':(i%3===2?'홀딩':'일반'),cd:'-',desc:'아직 설명이 없는 빈 스킬이에요. 스킬 이름, 아이콘, 효과를 정하면 이곳에 표시돼요.'}));
   return cls.skills;
 }
 function wrapText(str,x,y,maxW,lh,size,color){
@@ -568,15 +603,17 @@ function slotBox(x,y,sz){ctx.fillStyle='rgba(16,20,32,.55)';ctx.fillRect(x,y,sz,
 function drawSkillWin(){
   const list=skillsOf(current);
   ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
-  const w=Math.min(780,VW-32),h=Math.min(500,VH-40),x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);
+  const barTop=Math.min(...skillBarLayout().map(q=>q.y))-12;
+  const w=Math.min(780,VW-32),h=Math.max(260,Math.min(500,barTop-28)),x=Math.round((VW-w)/2),y=Math.max(12,Math.round((barTop-h)/2));
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('스킬',x+22,y+28,16,'#e8c06a');text(current.name,x+70,y+29,12,'#9aa0b4');
+  if(w>520)text('목록의 스킬을 아래 스킬칸으로 끌어서 장착',x+w-56,y+29,12,'#6b7080','right');
   button(x+w-44,y+12,30,30,'X',()=>{skillWin.open=false;});
   const top=y+54,bot=y+h-18,gap=14,lw=Math.round((w-22*2-gap)*.52),rw=w-44-gap-lw;
   // 목록
   const lr={x:x+22,y:top,w:lw,h:bot-top};skillWin.listRect=lr;
   const ch=Math.max(84,Math.min(104,lr.h/3.6)),cg=12,content=list.length*(ch+cg)-cg,maxS=Math.max(0,content-lr.h);
-  skillWin.scroll=Math.max(0,Math.min(maxS,skillWin.scroll));
+  skillWin.scroll=Math.max(0,Math.min(maxS,skillWin.scroll));skillWin.cards=[];skillWin.ratio=maxS>0?content/lr.h:1;
   ctx.save();ctx.beginPath();ctx.rect(lr.x,lr.y,lr.w,lr.h);ctx.clip();
   list.forEach((sk,i)=>{const cy=lr.y+i*(ch+cg)-skillWin.scroll;if(cy+ch<lr.y||cy>lr.y+lr.h)return;
     const cw=lr.w-(maxS>0?12:0),sel=i===skillWin.sel,hov=inRect({x:lr.x,y:Math.max(cy,lr.y),w:cw,h:Math.min(cy+ch,lr.y+lr.h)-Math.max(cy,lr.y)},mouse.x,mouse.y);
@@ -585,9 +622,10 @@ function drawSkillWin(){
     const isz=ch-28;slotBox(lr.x+14,cy+14,isz);
     const tx=lr.x+14+isz+16;
     text(sk.name,tx,cy+24,14,sel?'#e8c06a':'#e9e6dc','left',false);
-    text(`Lv ${sk.lv} / ${sk.max}`,tx,cy+48,12,'#c9c9d2','left',false);
-    text(`${sk.type}  ·  재사용 ${sk.cd}`,tx,cy+68,12,'#8a90a4','left',false);
-    const vy=Math.max(cy,lr.y),vh=Math.min(cy+ch,lr.y+lr.h)-vy;if(vh>4)ui.push({x:lr.x,y:vy,w:cw,h:vh,fn(){skillWin.sel=i;}});
+    text(`종류  ${sk.type}`,tx,cy+48,12,'#c9c9d2','left',false);
+    text(`재사용 대기시간  ${sk.cd}`,tx,cy+68,12,'#8a90a4','left',false);
+    const eq=slotOfSkill(current,i);if(eq){const lab='장착 '+keyName(BIND[eq]);ctx.font=`12px ${FONT}`;const tw=ctx.measureText(lab).width+12;ctx.fillStyle='rgba(232,192,106,.18)';ctx.fillRect(lr.x+cw-tw-12,cy+12,tw,20);text(lab,lr.x+cw-12-tw/2,cy+23,12,'#e8c06a','center',false);}
+    const vy=Math.max(cy,lr.y),vh=Math.min(cy+ch,lr.y+lr.h)-vy;if(vh>4){ui.push({x:lr.x,y:vy,w:cw,h:vh,fn(){skillWin.sel=i;}});skillWin.cards.push({i,x:lr.x,y:vy,w:cw,h:vh,ix:lr.x+14,iy:cy+14,isz});}
     if(hov)uiHover=true;});
   ctx.restore();
   if(maxS>0){const th=Math.max(30,lr.h*lr.h/content),ty=lr.y+(lr.h-th)*skillWin.scroll/maxS;ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(lr.x+lr.w-6,lr.y,6,lr.h);ctx.fillStyle='#6b7080';ctx.fillRect(lr.x+lr.w-6,ty,6,th);}
@@ -596,7 +634,7 @@ function drawSkillWin(){
   ctx.fillStyle='rgba(24,27,38,.9)';ctx.fillRect(rx,ry,rw,rh);ctx.fillStyle='#4a4f60';ctx.fillRect(rx,ry,rw,3);ctx.fillRect(rx,ry+rh-3,rw,3);ctx.fillRect(rx,ry,3,rh);ctx.fillRect(rx+rw-3,ry,3,rh);
   text(sk.name,rx+rw/2,ry+30,16,'#e8c06a','center',false);
   ctx.fillStyle='#3a3e4b';ctx.fillRect(rx+18,ry+52,rw-36,2);
-  text(`${sk.type}  ·  Lv ${sk.lv} / ${sk.max}  ·  재사용 ${sk.cd}`,rx+rw/2,ry+72,12,'#9aa0b4','center',false);
+  text(`${sk.type}  ·  재사용 대기시간 ${sk.cd}`,rx+rw/2,ry+72,12,'#9aa0b4','center',false);
   wrapText(sk.desc,rx+20,ry+104,rw-40,22,12,'#e9e6dc');
 }
 
@@ -629,19 +667,31 @@ function drawSettings(){
 }
 
 /* 스킬 칸: 아이덴티티(G)가 하단 중앙, 일반 스킬 3칸이 위로 감싼다. 아이콘은 추후 디자인 예정이라 반투명 공란 */
-function drawSlot(x,y,size,key,code,identity){
-  const down=keys.has(code)&&G&&!G.paused&&!G.over;
-  ctx.fillStyle=down?'rgba(120,140,190,.38)':'rgba(16,20,32,.42)';ctx.fillRect(x,y,size,size);
-  ctx.fillStyle=identity?'rgba(232,192,106,.55)':'rgba(205,210,225,.38)';
+function drawSlot(x,y,size,key,code,identity,name,glow){
+  const down=scene==='game'&&keys.has(code)&&G&&!G.paused&&!G.over;
+  ctx.fillStyle=down?'rgba(120,140,190,.38)':name?'rgba(60,66,90,.6)':'rgba(16,20,32,.42)';ctx.fillRect(x,y,size,size);
+  if(glow){ctx.fillStyle=`rgba(232,192,106,${.18+.12*Math.sin(T*8)})`;ctx.fillRect(x-4,y-4,size+8,size+8);}
+  if(name){ctx.font=`12px ${FONT}`;let n=name;while(n.length>1&&ctx.measureText(n).width>size-6)n=n.slice(0,-1);if(n!==name)n=n.slice(0,-1)+'…';text(n,x+size/2,y+size-12,12,'#e9e6dc','center');}
+  ctx.fillStyle=glow?'#e8c06a':identity?'rgba(232,192,106,.55)':'rgba(205,210,225,.38)';
   ctx.fillRect(x,y,size,2);ctx.fillRect(x,y+size-2,size,2);ctx.fillRect(x,y,2,size);ctx.fillRect(x+size-2,y,2,size);
   ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(x+2,y+2,size-4,size*.35);
   ctx.font=`12px ${FONT}`;const kw=Math.max(18,ctx.measureText(key).width+8);ctx.fillStyle='rgba(8,9,14,.75)';ctx.fillRect(x+3,y+3,kw,18);
   text(key,x+3+kw/2,y+3+9+1,12,identity?'#e8c06a':'#e9e6dc','center',false);
 }
-function drawSkillBar(){
+function skillBarLayout(){
   const sm=VW<520,sz=sm?44:52,id=sm?60:72,rad=sm?70:84,cx=VW/2,cy=VH-id/2-16;
-  drawSlot(cx-id/2,cy-id/2,id,keyName(BIND.id),BIND.id,true);
-  [['s1',160],['s2',90],['s3',20]].forEach(([k,deg])=>{const a=deg*Math.PI/180,x=cx+Math.cos(a)*rad,y=cy-Math.sin(a)*rad;drawSlot(x-sz/2,y-sz/2,sz,keyName(BIND[k]),BIND[k],false);});
+  const out=[{k:'id',x:cx-id/2,y:cy-id/2,size:id}];
+  [['s1',160],['s2',90],['s3',20]].forEach(([k,deg])=>{const a=deg*Math.PI/180;out.push({k,x:cx+Math.cos(a)*rad-sz/2,y:cy-Math.sin(a)*rad-sz/2,size:sz});});
+  return out;
+}
+function drawSkillBar(cls){
+  const L=loadoutOf(cls),list=skillsOf(cls),dragSk=skillDrag&&skillDrag.started?list[skillDrag.idx]:null;
+  for(const q of skillBarLayout()){const sk=L[q.k]!=null?list[L[q.k]]:null;
+    drawSlot(q.x,q.y,q.size,keyName(BIND[q.k]),BIND[q.k],q.k==='id',sk?sk.name:null,dragSk&&slotAccepts(q.k,dragSk));}
+}
+function drawSkillDrag(){
+  if(!skillDrag||!skillDrag.started)return;const sk=skillsOf(current)[skillDrag.idx],sz=52,x=skillDrag.x-sz/2,y=skillDrag.y-sz/2;
+  ctx.globalAlpha=.85;slotBox(x,y,sz);ctx.globalAlpha=1;text(sk.name,skillDrag.x,y+sz+12,12,'#e8c06a','center');
 }
 
 /* ---------------- 공통 루프 ---------------- */
