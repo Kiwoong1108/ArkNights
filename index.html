@@ -112,17 +112,34 @@ function drawChar(cls,x,y,face,t,moving,alpha=1,shadow=true,ent=null){
 
 /* ---------------- 입력 ---------------- */
 const keys=new Set();let ePressT=0;
+/* 스킬 키 설정: 스킬 1~3은 로비 설정에서 변경, 아이덴티티는 G 고정 */
+const BIND_DEF={s1:'KeyQ',s2:'KeyW',s3:'KeyE',id:'KeyG'};
+const BIND=Object.assign({},BIND_DEF);
+try{const b=JSON.parse(localStorage.getItem('arknights.binds')||'null');if(b)for(const k of ['s1','s2','s3'])if(typeof b[k]==='string')BIND[k]=b[k];}catch(err){}
+function saveBinds(){try{localStorage.setItem('arknights.binds',JSON.stringify({s1:BIND.s1,s2:BIND.s2,s3:BIND.s3}));}catch(err){}}
+const BIND_LABEL={s1:'스킬 1',s2:'스킬 2',s3:'스킬 3',id:'아이덴티티'};
+const KEYNAMES={Space:'Space',ShiftLeft:'L Shift',ShiftRight:'R Shift',ControlLeft:'L Ctrl',ControlRight:'R Ctrl',AltLeft:'L Alt',AltRight:'R Alt',Tab:'Tab',CapsLock:'Caps',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',Enter:'Enter',Backspace:'Back'};
+function keyName(c){if(!c)return '-';if(c.startsWith('Key'))return c.slice(3);if(c.startsWith('Digit'))return c.slice(5);if(c.startsWith('Numpad'))return 'Num '+c.slice(6);return KEYNAMES[c]||c;}
+const skillCodes=()=>[BIND.s1,BIND.s2,BIND.s3,BIND.id];
+let settingsOpen=false,capture=null,captureMsg='';
 addEventListener('keydown',e=>{
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code))e.preventDefault();
+  if(capture){ // 키 변경 팝업: 다음에 누른 키로 바로 변경
+    e.preventDefault();if(e.repeat)return;
+    if(e.code==='Escape'){capture=null;return;}
+    if(e.code===BIND.id){captureMsg='아이덴티티 키(G)와 겹쳐서 쓸 수 없어요';return;}
+    const other=['s1','s2','s3'].find(k=>k!==capture&&BIND[k]===e.code);if(other)BIND[other]=BIND[capture];
+    BIND[capture]=e.code;saveBinds();capture=null;return;
+  }
   if(e.repeat){keys.add(e.code);return;}
   keys.add(e.code);
-  if(e.code==='KeyE')pressE();
-  if(e.code==='Escape'&&scene==='game')togglePause();
-  if(e.code==='KeyQ'&&scene==='game'&&G.paused)backToLobby();
+  if(e.code==='Escape'){if(scene==='lobby')settingsOpen=!settingsOpen;else togglePause();return;}
+  if(e.code==='KeyE'&&scene==='lobby'&&!settingsOpen)pressE();
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
-const K=c=>keys.has(c)?1:0;
+/* 인게임에서는 스킬에 배정된 키가 이동에 쓰이지 않는다 (예: W를 스킬로 쓰면 위 이동은 방향키) */
+const K=c=>keys.has(c)&&!(scene==='game'&&skillCodes().includes(c))?1:0;
 function axis(){
   let x=(K('KeyD')||K('ArrowRight'))-(K('KeyA')||K('ArrowLeft'));
   let y=(K('KeyS')||K('ArrowDown'))-(K('KeyW')||K('ArrowUp'));
@@ -132,13 +149,27 @@ function axis(){
 /* 터치: 왼쪽 드래그 이동, 오른쪽 아래 E 버튼 */
 const touch={on:false,active:false,id:null,ox:0,oy:0,vx:0,vy:0};
 function eBtn(){return {x:VW-78,y:VH-96,r:40};}
+/* 클릭 UI: 매 프레임 그려진 버튼이 ui 목록에 등록된다 */
+let ui=[];const mouse={x:-1,y:-1};
+function uiHit(x,y){for(let i=ui.length-1;i>=0;i--){const b=ui[i];if(x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h){b.fn();return true;}}return false;}
+function button(x,y,w,h,label,fn,opt={}){
+  const hov=fn&&mouse.x>=x&&mouse.x<x+w&&mouse.y>=y&&mouse.y<y+h;
+  ctx.fillStyle=opt.active?'rgba(232,192,106,.18)':opt.disabled?'rgba(20,22,30,.7)':hov?'rgba(70,78,104,.9)':'rgba(30,34,48,.9)';ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=opt.active?'#e8c06a':opt.disabled?'#3a3e4b':hov?'#b8bdcc':'#5a5f72';
+  ctx.fillRect(x,y,w,2);ctx.fillRect(x,y+h-2,w,2);ctx.fillRect(x,y,2,h);ctx.fillRect(x+w-2,y,2,h);
+  text(label,x+w/2,y+h/2+1,opt.size||12,opt.color||(opt.disabled?'#6b7080':opt.active?'#e8c06a':'#e9e6dc'),'center',false);
+  if(fn)ui.push({x,y,w,h,fn});if(hov)uiHover=true;
+}
+let uiHover=false;
 cv.addEventListener('pointerdown',e=>{
-  cv.focus();if(e.pointerType!=='touch')return;touch.on=true;
-  const b=eBtn();if(Math.hypot(e.clientX-b.x,e.clientY-b.y)<b.r+12){pressE();return;}
-  if(scene==='game'&&G.over){pressE();return;}
+  cv.focus();mouse.x=e.offsetX;mouse.y=e.offsetY;
+  if(uiHit(e.offsetX,e.offsetY))return;
+  if(e.pointerType!=='touch')return;touch.on=true;
+  if(settingsOpen||capture||(scene==='game'&&G&&(G.paused||G.over)))return;
+  const b=eBtn();if(scene==='lobby'&&Math.hypot(e.clientX-b.x,e.clientY-b.y)<b.r+12){pressE();return;}
   touch.active=true;touch.id=e.pointerId;touch.ox=e.clientX;touch.oy=e.clientY;touch.vx=touch.vy=0;
 });
-cv.addEventListener('pointermove',e=>{if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
+cv.addEventListener('pointermove',e=>{mouse.x=e.offsetX;mouse.y=e.offsetY;if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
 const tEnd=e=>{if(e.pointerId===touch.id){touch.active=false;touch.vx=touch.vy=0;}};
 cv.addEventListener('pointerup',tEnd);cv.addEventListener('pointercancel',tEnd);
 
@@ -253,7 +284,7 @@ function drawTorch(x,y){
 }
 function lobbyUpdate(dt){
   const L=lobby,p=L.p;p.t+=dt;
-  const locked=L.fx&&(L.fx.type==='portal'||(L.fx.type==='select'&&L.fx.t<.25));
+  const locked=settingsOpen||capture||(L.fx&&(L.fx.type==='portal'||(L.fx.type==='select'&&L.fx.t<.25)));
   const a=locked?{x:0,y:0,m:0}:axis();
   p.moving=a.m>.05;if(a.x>.2)p.face=1;else if(a.x<-.2)p.face=-1;
   p.x+=a.x*540*dt;p.y+=a.y*540*dt;
@@ -319,7 +350,7 @@ function lobbyRender(){
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.draw());
   for(const [x,y] of torches)drawTorch(x,y);
   ctx.save();ctx.globalCompositeOperation='lighter';for(const q of L.parts){ctx.globalAlpha=Math.min(1,q.life*1.5);ctx.fillStyle=q.c;ctx.fillRect(q.x-q.s/2,q.y-q.s/2,q.s,q.s);}ctx.restore();
-  if(L.target&&(!L.fx||ePressT>0))drawKeyE(L.target.x,L.target.headY+Math.sin(T*3)*2,ePressT>0,L.fx?Math.min(1,ePressT/.08):L.targetFade);
+  if(L.target&&!settingsOpen&&(!L.fx||ePressT>0))drawKeyE(L.target.x,L.target.headY+Math.sin(T*3)*2,ePressT>0,L.fx?Math.min(1,ePressT/.08):L.targetFade);
   // 화면 공간
   screenXform();vignette(.75);
   if(charge>0){ctx.fillStyle=`rgba(70,150,255,${.42*charge})`;ctx.fillRect(0,0,VW,VH);}
@@ -327,8 +358,10 @@ function lobbyRender(){
   text('현재 캐릭터',30,34,12,'#9aa0b4');text(current.name,30,56,20,'#e8c06a');text(current.wep,126,57,12,'#c9c9d2');
   if(L.sign){const w=Math.min(460,VW-32),h=150,x=(VW-w)/2,y=VH-h-24;pixPanel(x,y,w,h);
     text('조작 안내',x+20,y+26,16,'#e8c06a');
-    const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['인게임','가까운 적 자동 공격'],['ESC','일시정지 (Q: 로비로)']];
+    const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
+  if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
+  if(settingsOpen)drawSettings();
 }
 function vignette(s){const g=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*.35,VW/2,VH/2,Math.max(VW,VH)*.75);g.addColorStop(0,'rgba(4,6,14,0)');g.addColorStop(1,`rgba(4,6,14,${s})`);ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);}
 
@@ -356,7 +389,7 @@ function startGame(){
      cam:{x:0,y:-60},en:[],pr:[],gems:[],fx:[],nums:[],time:0,kills:0,spawnAcc:0,paused:false,over:null};
   for(let i=0;i<24;i++){const a=Math.random()*Math.PI*2,d=300+Math.random()*900;G.gems.push({x:Math.cos(a)*d,y:Math.sin(a)*d,v:1,mag:false});}
 }
-function backToLobby(){transition(.35,()=>{scene='lobby';G=null;lobby.p.x=1200;lobby.p.y=1150;lobby.p.face=1;lobby.cam.x=1200;lobby.cam.y=1000;},.6);}
+function backToLobby(){if(tr)return;transition(.35,()=>{scene='lobby';G=null;lobby.p.x=1200;lobby.p.y=1150;lobby.p.face=1;lobby.cam.x=1200;lobby.cam.y=1000;},.6);}
 function togglePause(){if(G&&!G.over)G.paused=!G.paused;}
 function spawnEnemy(){
   const t=G.time;const r=Math.random();let type='circle';
@@ -503,46 +536,75 @@ function gameRender(){
   const tl=Math.max(0,GAME_LEN-g.time),mm=String(Math.floor(g.time/60)).padStart(2,'0'),ss=String(Math.floor(g.time%60)).padStart(2,'0');
   text(`${mm}:${ss}`,VW-18,40,28,'#e9e6dc','right');text(`처치 ${g.kills}`,VW-18,70,12,'#9aa0b4','right');
   drawSkillBar();
-  if(g.paused&&!g.over){ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,VW,VH);const w=300,h=130,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);text('일시정지',VW/2,y+34,20,'#e8c06a','center');text('ESC  계속하기',VW/2,y+70,12,'#e9e6dc','center');text('Q  로비로 돌아가기',VW/2,y+94,12,'#9aa0b4','center');}
+  if(g.paused&&!g.over){ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,VW,VH);const w=280,h=176,x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);pixPanel(x,y,w,h);text('일시정지',VW/2,y+32,20,'#e8c06a','center');
+    button(x+40,y+62,w-80,36,'계속하기',togglePause);button(x+40,y+110,w-80,36,'로비로 돌아가기',backToLobby);}
   if(g.over){ctx.fillStyle='rgba(5,6,10,.7)';ctx.fillRect(0,0,VW,VH);const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);
     text(g.over.win?'생존 성공':'쓰러졌습니다',VW/2,y+38,24,g.over.win?'#e8c06a':'#e9e6dc','center');
     text(`생존 시간  ${mm}:${ss}`,VW/2,y+82,12,'#e9e6dc','center');text(`처치  ${g.kills}   ·   레벨  ${p.lvl}`,VW/2,y+106,12,'#e9e6dc','center');
-    drawKeyE(VW/2-62,y+170,ePressT>0,1);text('로비로 돌아가기',VW/2-34,y+152,12,'#9aa0b4','left');}
+    button(x+(w-180)/2,y+138,180,38,'로비로 돌아가기',backToLobby);}
   ePressT=Math.max(0,ePressT-1/60);
 }
 
-/* 스킬 칸: Q·E·R 일반 스킬, Z 아이덴티티(중앙 위). 아이콘은 추후 디자인 예정이라 반투명 공란 */
-const SKILL_SLOTS=[{key:'Q',code:'KeyQ'},{key:'E',code:'KeyE'},{key:'R',code:'KeyR'}];
+/* 로비 설정 창: 키 설정 탭 */
+function drawSettings(){
+  ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
+  const w=Math.min(440,VW-32),h=344,x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);
+  pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
+  text('설정',x+22,y+28,16,'#e8c06a');
+  button(x+w-44,y+12,30,30,'X',()=>{settingsOpen=false;capture=null;});
+  button(x+20,y+54,100,32,'키 설정',()=>{},{active:true});
+  ctx.fillStyle='#3a3e4b';ctx.fillRect(x+20,y+90,w-40,2);
+  const kw=Math.min(132,w*.34);
+  ['s1','s2','s3','id'].forEach((k,i)=>{const ry=y+108+i*44;
+    text(BIND_LABEL[k],x+30,ry+16,12,k==='id'?'#9aa0b4':'#e9e6dc');
+    if(k==='id'){button(x+w-kw-20,ry,kw,32,keyName(BIND.id)+'  (고정)',null,{disabled:true});}
+    else button(x+w-kw-20,ry,kw,32,keyName(BIND[k]),()=>{capture=k;captureMsg='';});});
+  button(x+20,y+h-48,110,30,'기본값으로',()=>{BIND.s1=BIND_DEF.s1;BIND.s2=BIND_DEF.s2;BIND.s3=BIND_DEF.s3;saveBinds();});
+  text('ESC로 닫기',x+w-22,y+h-33,12,'#6b7080','right');
+  if(capture){ // 키 입력 대기 팝업
+    ctx.fillStyle='rgba(5,6,10,.5)';ctx.fillRect(0,0,VW,VH);
+    const pw=Math.min(320,VW-48),ph=158,px=Math.round((VW-pw)/2),py=Math.round((VH-ph)/2);
+    pixPanel(px,py,pw,ph);ui.push({x:px,y:py,w:pw,h:ph,fn(){}});
+    text(`${BIND_LABEL[capture]} 키 변경`,px+20,py+28,16,'#e8c06a');
+    ctx.fillStyle='#3a3e4b';ctx.fillRect(px+20,py+46,pw-40,2);
+    text('바꿀 키를 누르세요',pw/2+px,py+72,12,'#e9e6dc','center');
+    if(captureMsg)text(captureMsg,pw/2+px,py+96,12,'#e66a78','center');
+    else text(`현재  ${keyName(BIND[capture])}`,pw/2+px,py+96,12,'#9aa0b4','center');
+    button(px+pw/2-50,py+ph-44,100,30,'취소',()=>{capture=null;});
+  }
+}
+
+/* 스킬 칸: 아이덴티티(G)가 하단 중앙, 일반 스킬 3칸이 위로 감싼다. 아이콘은 추후 디자인 예정이라 반투명 공란 */
 function drawSlot(x,y,size,key,code,identity){
   const down=keys.has(code)&&G&&!G.paused&&!G.over;
   ctx.fillStyle=down?'rgba(120,140,190,.38)':'rgba(16,20,32,.42)';ctx.fillRect(x,y,size,size);
   ctx.fillStyle=identity?'rgba(232,192,106,.55)':'rgba(205,210,225,.38)';
   ctx.fillRect(x,y,size,2);ctx.fillRect(x,y+size-2,size,2);ctx.fillRect(x,y,2,size);ctx.fillRect(x+size-2,y,2,size);
   ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(x+2,y+2,size-4,size*.35);
-  const kw=18;ctx.fillStyle='rgba(8,9,14,.75)';ctx.fillRect(x+3,y+3,kw,kw);
-  text(key,x+3+kw/2,y+3+kw/2+1,12,identity?'#e8c06a':'#e9e6dc','center',false);
+  ctx.font=`12px ${FONT}`;const kw=Math.max(18,ctx.measureText(key).width+8);ctx.fillStyle='rgba(8,9,14,.75)';ctx.fillRect(x+3,y+3,kw,18);
+  text(key,x+3+kw/2,y+3+9+1,12,identity?'#e8c06a':'#e9e6dc','center',false);
 }
 function drawSkillBar(){
-  const sz=VW<520?48:56,gap=10,id=sz+10,total=sz*3+gap*2,x0=(VW-total)/2,y=VH-sz-18;
-  SKILL_SLOTS.forEach((k,i)=>drawSlot(x0+i*(sz+gap),y,sz,k.key,k.code,false));
-  drawSlot((VW-id)/2,y-id-10,id,'Z','KeyZ',true);
+  const sm=VW<520,sz=sm?44:52,id=sm?60:72,rad=sm?70:84,cx=VW/2,cy=VH-id/2-16;
+  drawSlot(cx-id/2,cy-id/2,id,keyName(BIND.id),BIND.id,true);
+  [['s1',160],['s2',90],['s3',20]].forEach(([k,deg])=>{const a=deg*Math.PI/180,x=cx+Math.cos(a)*rad,y=cy-Math.sin(a)*rad;drawSlot(x-sz/2,y-sz/2,sz,keyName(BIND[k]),BIND[k],false);});
 }
 
 /* ---------------- 공통 루프 ---------------- */
 function pressE(){
   if(tr)return;
-  if(scene==='lobby')lobbyInteract();
-  else if(G&&G.over){ePressT=.16;setTimeout(backToLobby,120);}
+  if(scene==='lobby'&&!settingsOpen)lobbyInteract();
 }
 let last=performance.now();
 function frame(now){
-  const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;
+  const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;ui=[];uiHover=false;
   if(scene==='lobby')lobbyUpdate(dt);else gameUpdate(dt);
   trUpdate(dt);
   if(scene==='lobby')lobbyRender();else gameRender();
   screenXform();
-  if(touch.on&&!(scene==='game'&&G&&G.over)){const b=eBtn();ctx.globalAlpha=.85;ctx.fillStyle='rgba(20,22,30,.6)';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();drawKeyE(b.x,b.y+22,ePressT>0,1);ctx.globalAlpha=1;
+  if(touch.on&&scene==='lobby'&&!settingsOpen){const b=eBtn();ctx.globalAlpha=.85;ctx.fillStyle='rgba(20,22,30,.6)';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();drawKeyE(b.x,b.y+22,ePressT>0,1);ctx.globalAlpha=1;
     if(touch.active){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(touch.ox,touch.oy,50,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(touch.ox+touch.vx*50,touch.oy+touch.vy*50,20,0,Math.PI*2);ctx.fill();}}
+  cv.style.cursor=uiHover?'pointer':'default';
   const a=trAlpha();if(a>0){ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,VW,VH);}
   requestAnimationFrame(frame);
 }
