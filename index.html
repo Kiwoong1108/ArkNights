@@ -112,11 +112,11 @@ function drawChar(cls,x,y,face,t,moving,alpha=1,shadow=true,ent=null){
 
 /* ---------------- 입력 ---------------- */
 const keys=new Set();let ePressT=0;
-/* 스킬 키 설정: 스킬 1~3은 로비 설정에서 변경, 아이덴티티는 G 고정 */
+/* 스킬 키 설정: 스킬 1~3과 아이덴티티 모두 로비 설정에서 변경 */
 const BIND_DEF={s1:'KeyQ',s2:'KeyW',s3:'KeyE',id:'KeyG'};
 const BIND=Object.assign({},BIND_DEF);
-try{const b=JSON.parse(localStorage.getItem('arknights.binds')||'null');if(b)for(const k of ['s1','s2','s3'])if(typeof b[k]==='string')BIND[k]=b[k];}catch(err){}
-function saveBinds(){try{localStorage.setItem('arknights.binds',JSON.stringify({s1:BIND.s1,s2:BIND.s2,s3:BIND.s3}));}catch(err){}}
+try{const b=JSON.parse(localStorage.getItem('arknights.binds')||'null');if(b)for(const k of ['s1','s2','s3','id'])if(typeof b[k]==='string')BIND[k]=b[k];}catch(err){}
+function saveBinds(){try{localStorage.setItem('arknights.binds',JSON.stringify(BIND));}catch(err){}}
 const BIND_LABEL={s1:'스킬 1',s2:'스킬 2',s3:'스킬 3',id:'아이덴티티'};
 const KEYNAMES={Space:'Space',ShiftLeft:'L Shift',ShiftRight:'R Shift',ControlLeft:'L Ctrl',ControlRight:'R Ctrl',AltLeft:'L Alt',AltRight:'R Alt',Tab:'Tab',CapsLock:'Caps',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',Enter:'Enter',Backspace:'Back'};
 function keyName(c){if(!c)return '-';if(c.startsWith('Key'))return c.slice(3);if(c.startsWith('Digit'))return c.slice(5);if(c.startsWith('Numpad'))return 'Num '+c.slice(6);return KEYNAMES[c]||c;}
@@ -127,8 +127,7 @@ addEventListener('keydown',e=>{
   if(capture){ // 키 변경 팝업: 다음에 누른 키로 바로 변경
     e.preventDefault();if(e.repeat)return;
     if(e.code==='Escape'){capture=null;return;}
-    if(e.code===BIND.id){captureMsg='아이덴티티 키(G)와 겹쳐서 쓸 수 없어요';return;}
-    const other=['s1','s2','s3'].find(k=>k!==capture&&BIND[k]===e.code);if(other)BIND[other]=BIND[capture];
+    const other=['s1','s2','s3','id'].find(k=>k!==capture&&BIND[k]===e.code);if(other)BIND[other]=BIND[capture];
     BIND[capture]=e.code;saveBinds();capture=null;return;
   }
   if(e.repeat){keys.add(e.code);return;}
@@ -556,10 +555,9 @@ function drawSettings(){
   ctx.fillStyle='#3a3e4b';ctx.fillRect(x+20,y+90,w-40,2);
   const kw=Math.min(132,w*.34);
   ['s1','s2','s3','id'].forEach((k,i)=>{const ry=y+108+i*44;
-    text(BIND_LABEL[k],x+30,ry+16,12,k==='id'?'#9aa0b4':'#e9e6dc');
-    if(k==='id'){button(x+w-kw-20,ry,kw,32,keyName(BIND.id)+'  (고정)',null,{disabled:true});}
-    else button(x+w-kw-20,ry,kw,32,keyName(BIND[k]),()=>{capture=k;captureMsg='';});});
-  button(x+20,y+h-48,110,30,'기본값으로',()=>{BIND.s1=BIND_DEF.s1;BIND.s2=BIND_DEF.s2;BIND.s3=BIND_DEF.s3;saveBinds();});
+    text(BIND_LABEL[k],x+30,ry+16,12,k==='id'?'#e8c06a':'#e9e6dc');
+    button(x+w-kw-20,ry,kw,32,keyName(BIND[k]),()=>{capture=k;captureMsg='';});});
+  button(x+20,y+h-48,110,30,'기본값으로',()=>{Object.assign(BIND,BIND_DEF);saveBinds();});
   text('ESC로 닫기',x+w-22,y+h-33,12,'#6b7080','right');
   if(capture){ // 키 입력 대기 팝업
     ctx.fillStyle='rgba(5,6,10,.5)';ctx.fillRect(0,0,VW,VH);
