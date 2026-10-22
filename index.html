@@ -132,8 +132,9 @@ addEventListener('keydown',e=>{
   }
   if(e.repeat){keys.add(e.code);return;}
   keys.add(e.code);
-  if(e.code==='Escape'){if(scene==='lobby')settingsOpen=!settingsOpen;else togglePause();return;}
-  if(e.code==='KeyE'&&scene==='lobby'&&!settingsOpen)pressE();
+  if(e.code==='Escape'){if(scene==='lobby'){if(skillWin.open)skillWin.open=false;else settingsOpen=!settingsOpen;}else togglePause();return;}
+  if(e.code==='KeyK'&&scene==='lobby'&&!settingsOpen&&!lobby.fx){skillWin.open=!skillWin.open;skillWin.scroll=0;skillWin.sel=0;return;}
+  if(e.code==='KeyE'&&scene==='lobby'&&!settingsOpen&&!skillWin.open)pressE();
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
@@ -160,16 +161,22 @@ function button(x,y,w,h,label,fn,opt={}){
   if(fn)ui.push({x,y,w,h,fn});if(hov)uiHover=true;
 }
 let uiHover=false;
+const inRect=(r,x,y)=>r&&x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h;
+cv.addEventListener('wheel',e=>{if(skillWin.open&&inRect(skillWin.listRect,e.offsetX,e.offsetY)){e.preventDefault();skillWin.scroll+=e.deltaY;}},{passive:false});
 cv.addEventListener('pointerdown',e=>{
   cv.focus();mouse.x=e.offsetX;mouse.y=e.offsetY;
+  if(skillWin.open&&inRect(skillWin.listRect,e.offsetX,e.offsetY)){skillWin.drag={id:e.pointerId,y:e.offsetY,s:skillWin.scroll,moved:false};return;}
   if(uiHit(e.offsetX,e.offsetY))return;
   if(e.pointerType!=='touch')return;touch.on=true;
   if(settingsOpen||capture||(scene==='game'&&G&&(G.paused||G.over)))return;
   const b=eBtn();if(scene==='lobby'&&Math.hypot(e.clientX-b.x,e.clientY-b.y)<b.r+12){pressE();return;}
   touch.active=true;touch.id=e.pointerId;touch.ox=e.clientX;touch.oy=e.clientY;touch.vx=touch.vy=0;
 });
-cv.addEventListener('pointermove',e=>{mouse.x=e.offsetX;mouse.y=e.offsetY;if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
-const tEnd=e=>{if(e.pointerId===touch.id){touch.active=false;touch.vx=touch.vy=0;}};
+cv.addEventListener('pointermove',e=>{mouse.x=e.offsetX;mouse.y=e.offsetY;
+  const d=skillWin.drag;if(d&&d.id===e.pointerId){const dy=e.offsetY-d.y;if(Math.abs(dy)>5)d.moved=true;if(d.moved)skillWin.scroll=d.s-dy;}if(!touch.active||e.pointerId!==touch.id)return;const dx=e.clientX-touch.ox,dy=e.clientY-touch.oy,m=Math.hypot(dx,dy);const s=Math.min(1,m/50)/(m||1);touch.vx=dx*s;touch.vy=dy*s;});
+const tEnd=e=>{
+  const d=skillWin.drag;if(d&&d.id===e.pointerId){skillWin.drag=null;if(!d.moved)uiHit(e.offsetX,e.offsetY);}
+  if(e.pointerId===touch.id){touch.active=false;touch.vx=touch.vy=0;}};
 cv.addEventListener('pointerup',tEnd);cv.addEventListener('pointercancel',tEnd);
 
 /* ---------------- 공용 ---------------- */
@@ -283,7 +290,7 @@ function drawTorch(x,y){
 }
 function lobbyUpdate(dt){
   const L=lobby,p=L.p;p.t+=dt;
-  const locked=settingsOpen||capture||(L.fx&&(L.fx.type==='portal'||(L.fx.type==='select'&&L.fx.t<.25)));
+  const locked=settingsOpen||capture||skillWin.open||(L.fx&&(L.fx.type==='portal'||(L.fx.type==='select'&&L.fx.t<.25)));
   const a=locked?{x:0,y:0,m:0}:axis();
   p.moving=a.m>.05;if(a.x>.2)p.face=1;else if(a.x<-.2)p.face=-1;
   p.x+=a.x*540*dt;p.y+=a.y*540*dt;
@@ -349,17 +356,18 @@ function lobbyRender(){
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.draw());
   for(const [x,y] of torches)drawTorch(x,y);
   ctx.save();ctx.globalCompositeOperation='lighter';for(const q of L.parts){ctx.globalAlpha=Math.min(1,q.life*1.5);ctx.fillStyle=q.c;ctx.fillRect(q.x-q.s/2,q.y-q.s/2,q.s,q.s);}ctx.restore();
-  if(L.target&&!settingsOpen&&(!L.fx||ePressT>0))drawKeyE(L.target.x,L.target.headY+Math.sin(T*3)*2,ePressT>0,L.fx?Math.min(1,ePressT/.08):L.targetFade);
+  if(L.target&&!settingsOpen&&!skillWin.open&&(!L.fx||ePressT>0))drawKeyE(L.target.x,L.target.headY+Math.sin(T*3)*2,ePressT>0,L.fx?Math.min(1,ePressT/.08):L.targetFade);
   // 화면 공간
   screenXform();vignette(.75);
   if(charge>0){ctx.fillStyle=`rgba(70,150,255,${.42*charge})`;ctx.fillRect(0,0,VW,VH);}
   pixPanel(16,16,236,58);
   text('현재 캐릭터',30,34,12,'#9aa0b4');text(current.name,30,56,20,'#e8c06a');text(current.wep,126,57,12,'#c9c9d2');
-  if(L.sign){const w=Math.min(460,VW-32),h=150,x=(VW-w)/2,y=VH-h-24;pixPanel(x,y,w,h);
+  if(L.sign){const w=Math.min(460,VW-32),h=172,x=(VW-w)/2,y=VH-h-24;pixPanel(x,y,w,h);
     text('조작 안내',x+20,y+26,16,'#e8c06a');
-    const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
+    const rows=[['WASD / 방향키','이동'],['E','캐릭터 선택 · 포탈 입장'],['K','스킬창'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
   if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
+  if(skillWin.open)drawSkillWin();
   if(settingsOpen)drawSettings();
 }
 function vignette(s){const g=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*.35,VW/2,VH/2,Math.max(VW,VH)*.75);g.addColorStop(0,'rgba(4,6,14,0)');g.addColorStop(1,`rgba(4,6,14,${s})`);ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);}
@@ -544,6 +552,54 @@ function gameRender(){
   ePressT=Math.max(0,ePressT-1/60);
 }
 
+/* 스킬창 (로비에서 K): 왼쪽 스킬 목록은 스크롤, 오른쪽은 고른 스킬의 정보 */
+const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null};
+// 예시용 빈 스킬. 캐릭터별 실제 스킬은 이 목록을 채우면 된다
+function skillsOf(cls){
+  if(!cls.skills)cls.skills=Array.from({length:8},(_,i)=>({name:`빈 스킬 ${i+1}`,lv:1,max:10,type:i===7?'아이덴티티':(i%3===2?'홀딩':'일반'),cd:'-',desc:'아직 설명이 없는 빈 스킬이에요. 스킬 이름, 아이콘, 효과를 정하면 이곳에 표시돼요.'}));
+  return cls.skills;
+}
+function wrapText(str,x,y,maxW,lh,size,color){
+  ctx.font=`${size}px ${FONT}`;let line='',yy=y;
+  for(const ch of str){const t=line+ch;if(ctx.measureText(t).width>maxW&&line){text(line,x,yy,size,color,'left',false);line=ch.trimStart();yy+=lh;}else line=t;}
+  if(line)text(line,x,yy,size,color,'left',false);
+}
+function slotBox(x,y,sz){ctx.fillStyle='rgba(16,20,32,.55)';ctx.fillRect(x,y,sz,sz);ctx.fillStyle='rgba(205,210,225,.35)';ctx.fillRect(x,y,sz,2);ctx.fillRect(x,y+sz-2,sz,2);ctx.fillRect(x,y,2,sz);ctx.fillRect(x+sz-2,y,2,sz);ctx.fillStyle='rgba(255,255,255,.05)';ctx.fillRect(x+2,y+2,sz-4,sz*.35);}
+function drawSkillWin(){
+  const list=skillsOf(current);
+  ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
+  const w=Math.min(780,VW-32),h=Math.min(500,VH-40),x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);
+  pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
+  text('스킬',x+22,y+28,16,'#e8c06a');text(current.name,x+70,y+29,12,'#9aa0b4');
+  button(x+w-44,y+12,30,30,'X',()=>{skillWin.open=false;});
+  const top=y+54,bot=y+h-18,gap=14,lw=Math.round((w-22*2-gap)*.52),rw=w-44-gap-lw;
+  // 목록
+  const lr={x:x+22,y:top,w:lw,h:bot-top};skillWin.listRect=lr;
+  const ch=Math.max(84,Math.min(104,lr.h/3.6)),cg=12,content=list.length*(ch+cg)-cg,maxS=Math.max(0,content-lr.h);
+  skillWin.scroll=Math.max(0,Math.min(maxS,skillWin.scroll));
+  ctx.save();ctx.beginPath();ctx.rect(lr.x,lr.y,lr.w,lr.h);ctx.clip();
+  list.forEach((sk,i)=>{const cy=lr.y+i*(ch+cg)-skillWin.scroll;if(cy+ch<lr.y||cy>lr.y+lr.h)return;
+    const cw=lr.w-(maxS>0?12:0),sel=i===skillWin.sel,hov=inRect({x:lr.x,y:Math.max(cy,lr.y),w:cw,h:Math.min(cy+ch,lr.y+lr.h)-Math.max(cy,lr.y)},mouse.x,mouse.y);
+    ctx.fillStyle=sel?'rgba(232,192,106,.12)':hov?'rgba(60,66,88,.7)':'rgba(24,27,38,.9)';ctx.fillRect(lr.x,cy,cw,ch);
+    ctx.fillStyle=sel?'#e8c06a':hov?'#9aa0b4':'#4a4f60';ctx.fillRect(lr.x,cy,cw,3);ctx.fillRect(lr.x,cy+ch-3,cw,3);ctx.fillRect(lr.x,cy,3,ch);ctx.fillRect(lr.x+cw-3,cy,3,ch);
+    const isz=ch-28;slotBox(lr.x+14,cy+14,isz);
+    const tx=lr.x+14+isz+16;
+    text(sk.name,tx,cy+24,14,sel?'#e8c06a':'#e9e6dc','left',false);
+    text(`Lv ${sk.lv} / ${sk.max}`,tx,cy+48,12,'#c9c9d2','left',false);
+    text(`${sk.type}  ·  재사용 ${sk.cd}`,tx,cy+68,12,'#8a90a4','left',false);
+    const vy=Math.max(cy,lr.y),vh=Math.min(cy+ch,lr.y+lr.h)-vy;if(vh>4)ui.push({x:lr.x,y:vy,w:cw,h:vh,fn(){skillWin.sel=i;}});
+    if(hov)uiHover=true;});
+  ctx.restore();
+  if(maxS>0){const th=Math.max(30,lr.h*lr.h/content),ty=lr.y+(lr.h-th)*skillWin.scroll/maxS;ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(lr.x+lr.w-6,lr.y,6,lr.h);ctx.fillStyle='#6b7080';ctx.fillRect(lr.x+lr.w-6,ty,6,th);}
+  // 정보
+  const rx=x+22+lw+gap,ry=top,rh=bot-top,sk=list[skillWin.sel];
+  ctx.fillStyle='rgba(24,27,38,.9)';ctx.fillRect(rx,ry,rw,rh);ctx.fillStyle='#4a4f60';ctx.fillRect(rx,ry,rw,3);ctx.fillRect(rx,ry+rh-3,rw,3);ctx.fillRect(rx,ry,3,rh);ctx.fillRect(rx+rw-3,ry,3,rh);
+  text(sk.name,rx+rw/2,ry+30,16,'#e8c06a','center',false);
+  ctx.fillStyle='#3a3e4b';ctx.fillRect(rx+18,ry+52,rw-36,2);
+  text(`${sk.type}  ·  Lv ${sk.lv} / ${sk.max}  ·  재사용 ${sk.cd}`,rx+rw/2,ry+72,12,'#9aa0b4','center',false);
+  wrapText(sk.desc,rx+20,ry+104,rw-40,22,12,'#e9e6dc');
+}
+
 /* 로비 설정 창: 키 설정 탭 */
 function drawSettings(){
   ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
@@ -600,7 +656,7 @@ function frame(now){
   trUpdate(dt);
   if(scene==='lobby')lobbyRender();else gameRender();
   screenXform();
-  if(touch.on&&scene==='lobby'&&!settingsOpen){const b=eBtn();ctx.globalAlpha=.85;ctx.fillStyle='rgba(20,22,30,.6)';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();drawKeyE(b.x,b.y+22,ePressT>0,1);ctx.globalAlpha=1;
+  if(touch.on&&scene==='lobby'&&!settingsOpen&&!skillWin.open){const b=eBtn();ctx.globalAlpha=.85;ctx.fillStyle='rgba(20,22,30,.6)';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();drawKeyE(b.x,b.y+22,ePressT>0,1);ctx.globalAlpha=1;
     if(touch.active){ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(touch.ox,touch.oy,50,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(touch.ox+touch.vx*50,touch.oy+touch.vy*50,20,0,Math.PI*2);ctx.fill();}}
   cv.style.cursor=uiHover?'pointer':'default';
   const a=trAlpha();if(a>0){ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,VW,VH);}
