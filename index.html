@@ -816,7 +816,7 @@ function grabCombo(B,dir){
   const slamDown=()=>A(.25,{start(){B.frame='chop2';B.holdDown=true;hurtPlayer(14,true);G.shake=14;const h=holdPos(B);crater(h.x,h.y+4,80);shockRing(h.x,h.y,120);}});
   const lift=()=>A(.35,{start(){B.frame='chop3';B.holdDown=false;}});
   B.q.unshift(lift(),slamDown(),lift(),slamDown(),A(.45,{start(){B.frame='grab1';
-    const a=dir!=null?dir:(B.face>0?0:Math.PI),s={x:p.x,y:p.y},t=armEnd(p.x,p.y,a,680);t.y+=(Math.random()-.5)*60;
+    const a=dir!=null?dir:(B.face>0?0:Math.PI),s={x:p.x,y:p.y},t=armEnd(p.x,p.y,a,340);t.y+=(Math.random()-.5)*60;
     p.lock={k:'throw',sx:s.x,sy:s.y,tx:t.x,ty:t.y,t:0,dur:.7};}}));
 }
 function phaseTarget(B){return B.hp<=B.max/3?3:B.hp<=B.max*2/3?2:1;}
@@ -920,7 +920,8 @@ function playerLockUpdate(dt){
   const p=G.p,L=p.lock,B=G.boss;if(!L)return;
   if(L.k==='held'){const h=holdPos(B);p.x=h.x;p.y=h.y;p.z+=((B.holdDown?0:200)-p.z)*Math.min(1,dt*(B.holdDown?40:12));p.face=-B.face;}
   else if(L.k==='throw'){L.t+=dt;const k=Math.min(1,L.t/L.dur);p.x=L.sx+(L.tx-L.sx)*k;p.y=L.sy+(L.ty-L.sy)*k;p.z=Math.sin(Math.PI*k)*260+(1-k)*120*(k<.5?1:0);
-    if(k>=1){p.z=0;if(!walk(p.x,p.y)){fallPlayer();return;}hurtPlayer(18,true);crater(p.x,p.y,70);G.shake=12;p.lock={k:'stun',t:.5};}}
+    if(k>=1){p.z=0;if(!walk(p.x,p.y)){ // 무너진 타일 위로 떨어지면 낙사, 멀쩡한 타일 쪽 맵 끝이면 가장자리에 착지
+      if(G.broken[sectorOf(p.x,p.y)]){fallPlayer();return;}clampWalk(p);}hurtPlayer(18,true);crater(p.x,p.y,70);G.shake=12;p.lock={k:'stun',t:.5};}}
   else if(L.k==='stun'){L.t-=dt;if(L.t<=0)p.lock=null;}
   else if(L.k==='fall'){L.t+=dt;p.z=-900*L.t*L.t;if(L.t>1){p.hp=0;G.over={win:false,fall:true};}}
 }
