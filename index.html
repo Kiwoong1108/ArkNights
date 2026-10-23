@@ -830,7 +830,7 @@ function queuePattern(B){
   B.pattern=pat;const Q=[];
   if(pat==='swing'){
     let tele;
-    const sr=B.phase>=3?120:480; // 3페이즈는 범위 1/4
+    const sr=B.phase>=3?240:480; // 3페이즈는 넓이 1/4 (반지름 절반)
     Q.push(walkTo(B,sr*.67,5));
     Q.push(A(.9,{start(){bossFacePlayer(B);tele={k:'sector',x:B.fx,y:B.fy,r:sr,a:gang(B.fx,B.fy,G.p.x,G.p.y),arc:Math.PI*1.15};B.tele.push(tele);B.frame='swing0';},
       update(dt,k){B.frame=k<.5?'swing0':'swing1';}}));
