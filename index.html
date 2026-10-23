@@ -62,9 +62,21 @@ const CLS=Object.fromEntries(CLASSES.map(c=>[c.id,c]));
 /* 숨쉬기: 대기 시 느리게, 걸을 때는 같은 움직임을 빠르게. 무기는 몸과 같은 변환 안에 있어 박자·방향이 같다 */
 function bobOf(t,moving){return moving?-Math.abs(Math.sin(t*Math.PI/0.3))*3.6:Math.sin(t*Math.PI*2/1.8)*2.2;}
 
+let CUR_POSE=null;
+/* 워로드 스킬 중 무기 동작: dx/dy는 캐릭터 키 비율, dr은 도(손 닿는 지점=무기 기준점 중심 회전). 앞쪽이 +x */
+function wepPose(p){
+  const a=p.act,kick=p.lanceKick||0,out={lance:{dx:-kick,dy:0,dr:0},shield:{dx:0,dy:0,dr:0}};
+  if(!a)return kick>.001?out:null;const t=a.t;
+  const ease=(x)=>x<0?0:x>1?1:x*x*(3-2*x);
+  if(a.k==='bash'){out.shield.dx=Math.sin(Math.PI*Math.min(1,t/.28))*.3;}
+  else if(a.k==='bolt'){const up=ease(t/.15)*(1-ease((t-.8)/.15));out.lance.dr=-90*up;out.lance.dy=-.04*up;}
+  else if(a.k==='upper'){if(t<.15)out.lance.dx+=.28*(t/.15);else{const k=ease((t-.15)/.1),back=ease((t-.32)/.13);out.lance.dx+=.28*(1-k*.6)*(1-back);out.lance.dr=-75*k*(1-back);}}
+  else if(a.k==='sdash'){out.shield.dx=.12;}
+  return out;
+}
 function drawWep(w,part){
-  const im=IMG['w_'+w.img];if(!im)return;const s=w.h*CH/im.height;
-  ctx.save();ctx.translate(w.x*CH,w.y*CH);ctx.rotate(w.r*Math.PI/180);if(w.fx)ctx.scale(-1,1);
+  const im=IMG['w_'+w.img];if(!im)return;const s=w.h*CH/im.height;const ps=CUR_POSE&&CUR_POSE[w.img];
+  ctx.save();ctx.translate((w.x+(ps?ps.dx:0))*CH,(w.y+(ps?ps.dy:0))*CH);ctx.rotate((w.r+(ps?ps.dr:0))*Math.PI/180);if(w.fx)ctx.scale(-1,1);
   const ox=-w.ax*im.width*s,oy=-w.ay*im.height*s;
   if(part&&w.split!==undefined){ // 팔꿈치 기준: 위쪽은 몸 뒤, 아래쪽은 몸 앞
     const cut=Math.round(w.split*im.height),sy=part==='upper'?0:cut,sh=part==='upper'?cut:im.height-cut;
@@ -100,6 +112,7 @@ function drawChar(cls,x,y,face,t,moving,alpha=1,shadow=true,ent=null){
   ctx.save();ctx.translate(x,y);ctx.globalAlpha*=alpha;
   if(shadow){ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.ellipse(0,0,im.width*k*.38,9,0,0,Math.PI*2);ctx.fill();}
   ctx.translate(0,bobOf(t,moving));if(face<0)ctx.scale(-1,1);
+  CUR_POSE=scene==='game'&&G&&ent===G.p&&cls.id==='warlord'?wepPose(ent):null;
   for(const w of cls.weps)if(w.back)drawWep(w);
   for(const w of cls.weps)if(w.split!==undefined)drawWep(w,w.inv?'lower':'upper');
   if(cls.cards)drawCards(cls.cards,t,false);
@@ -107,6 +120,7 @@ function drawChar(cls,x,y,face,t,moving,alpha=1,shadow=true,ent=null){
   for(const w of cls.weps)if(w.split!==undefined)drawWep(w,w.inv?'upper':'lower');
   for(const w of cls.weps)if(!w.back&&w.split===undefined)drawWep(w);
   if(cls.cards)drawCards(cls.cards,t,true);
+  CUR_POSE=null;
   ctx.restore();
 }
 
@@ -609,11 +623,11 @@ const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null,cards:[],ratio
 let skillDrag=null;
 /* 캐릭터별 장착 스킬: s1~s3 일반 스킬 칸, id 아이덴티티 칸 (아이덴티티 종류만) */
 function loadoutOf(cls){
-  if(!cls.loadout){let l=null;try{l=JSON.parse(localStorage.getItem('arknights.loadout3.'+cls.id)||'null');}catch(err){}
-    cls.loadout=cls.id==='warlord'&&!l?{s1:3,s2:0,s3:5,id:null}:{s1:l?null:0,s2:null,s3:null,id:null};if(l)for(const k in cls.loadout)if(Number.isInteger(l[k]))cls.loadout[k]=l[k];}
+  if(!cls.loadout){let l=null;try{l=JSON.parse(localStorage.getItem('arknights.loadout4.'+cls.id)||'null');}catch(err){}
+    cls.loadout=cls.id==='warlord'&&!l?{s1:0,s2:1,s3:7,id:null}:{s1:l?null:0,s2:null,s3:null,id:null};if(l)for(const k in cls.loadout)if(Number.isInteger(l[k]))cls.loadout[k]=l[k];}
   return cls.loadout;
 }
-function saveLoadout(cls){try{localStorage.setItem('arknights.loadout3.'+cls.id,JSON.stringify(cls.loadout));}catch(err){}}
+function saveLoadout(cls){try{localStorage.setItem('arknights.loadout4.'+cls.id,JSON.stringify(cls.loadout));}catch(err){}}
 function slotAccepts(k,sk){return !!sk&&((k==='id')===(sk.type==='아이덴티티'));}
 function equip(cls,k,idx,from){
   const L=loadoutOf(cls),prev=L[k];
@@ -1029,22 +1043,22 @@ const sang=a=>Math.atan2(Math.sin(a)*YS,Math.cos(a)); // 지면 각도 → 화�
 const footOf=e=>e.boss?{x:e.fx,y:e.fy,r:95}:{x:e.x,y:e.y,r:e.r};
 const fr=(p,a,b)=>Array.from({length:b-a+1},(_,i)=>p+(a+i));
 const WL_SKILLS=[
+ {id:'bash',fam:'shield',icon:'ic_s4',name:'배쉬',type:'일반',cdSec:8,counter:true,opts:['가까운 적','이동 방향'],
+  desc:'방패로 앞쪽 부채꼴 범위를 1회 타격해요. 카운터 스킬: 파란 빛을 두른 보스의 앞쪽에서 맞히면 패턴을 끊어요.'},
  {id:'sdash',fam:'shield',icon:'ic_s1',name:'방패 돌진',type:'일반',cdSec:4,opts:['가까운 적','이동 방향'],
   desc:'방패로 전방을 향해 0.5초간 빠르게 돌진해요. 돌진 중 20회 타격하고, 적에 막히면 멈춰서 계속 타격해요. 적이 쓰러지면 뚫고 지나가요.'},
  {id:'quake',fam:'shield',icon:'ic_s2',name:'방패 격동',type:'일반',cdSec:8,opts:['다수','방향'],
   desc:'범위 안의 적에게 점프해 착지하면서 주변 땅을 갈라 1회 타격해요. 살아남은 적은 살짝 밀려나요. 보스전에서는 보스에게 뛰어요. 다수: 적이 가장 많은 곳 / 방향: 그 방향 최대 사거리.'},
  {id:'bolt',fam:'shield',icon:'ic_s3',name:'가디언의 낙뢰',type:'일반',cdSec:12,opts:['가까운 적','이동 방향'],
   desc:'짧게 정신을 집중한 뒤 자신에게 낙뢰를 떨어뜨리고(1회), 네 갈래로 뻗어 나가게 해요(1회). 한 갈래는 대상 쪽을 향해요.'},
- {id:'bash',fam:'shield',icon:'ic_s4',name:'배쉬',type:'일반',cdSec:8,counter:true,opts:['가까운 적','이동 방향'],
-  desc:'방패로 앞쪽 부채꼴 범위를 1회 타격해요. 카운터 스킬: 파란 빛을 두른 보스의 앞쪽에서 맞히면 패턴을 끊어요.'},
- {id:'fire',fam:'lance',icon:'ic_l1',name:'파이어 불릿',type:'일반',cdSec:4,opts:['가까운 적','이동 방향'],
-  desc:'랜스 끝에서 불꽃 탄환을 바로 폭발시켜 근거리의 적을 1회 판정으로 2번 타격해요.'},
- {id:'burst',fam:'lance',icon:'ic_l2',name:'버스트 캐넌',type:'홀딩',cdSec:12,opts:['가까운 적','이동 방향'],
-  desc:'키를 누르고 있으면 랜스에 차징해요. 0.4초마다 단계가 올라 최대 3회 포격하고, 1.2초 뒤 1초 더 버틸 수 있어요. 홀딩 중엔 못 움직이고 적을 자동 조준하며, 포격마다 뒤로 밀려나요.'},
- {id:'cspear',fam:'lance',icon:'ic_l3',name:'카운터 스피어',type:'일반',cdSec:8,opts:['가까운 적','이동 방향'],
-  desc:'방패를 들어 1초간 막아요(이동 불가). 이때 공격을 받으면 피해 없이 공격한 적에게 짧게 돌진해 포격하고 뒤로 크게 밀려나요. 잡기는 막을 수 없어요.'},
  {id:'upper',fam:'lance',icon:'ic_l4',name:'대쉬 어퍼 파이어',type:'일반',cdSec:8,counter:true,opts:['가까운 적','이동 방향'],
   desc:'앞으로 짧게 돌진하며 랜스를 위로 쳐 올려 타격해요. 카운터 스킬: 파란 빛을 두른 보스의 앞쪽에서 맞히면 패턴을 끊어요.'},
+ {id:'fire',fam:'lance',icon:'ic_l1',name:'파이어 불릿',type:'일반',cdSec:4,opts:['가까운 적','이동 방향'],
+  desc:'랜스 끝에서 불꽃 탄환을 바로 폭발시켜 근거리의 적을 1회 판정으로 2번 타격해요.'},
+ {id:'cspear',fam:'lance',icon:'ic_l3',name:'카운터 스피어',type:'일반',cdSec:8,opts:['가까운 적','이동 방향'],
+  desc:'방패를 들어 1초간 막아요(이동 불가). 이때 공격을 받으면 피해 없이 공격한 적에게 짧게 돌진해 포격하고 뒤로 크게 밀려나요. 잡기는 막을 수 없어요.'},
+ {id:'burst',fam:'lance',icon:'ic_l2',name:'버스트 캐넌',type:'홀딩',cdSec:12,opts:['가까운 적','이동 방향'],
+  desc:'키를 누르고 있으면 랜스에 차징해요. 0.4초마다 단계가 올라 최대 3회 포격하고, 1.2초 뒤 1초 더 버틸 수 있어요. 홀딩 중엔 못 움직이고 적을 자동 조준하며, 포격마다 뒤로 밀려나요.'},
 ];
 WL_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
 let SKOPT={};try{SKOPT=JSON.parse(localStorage.getItem('arknights.skopt')||'{}')||{};}catch(err){}
@@ -1084,7 +1098,7 @@ function startWarlordSkill(sk,slot){
     G.fx.push({k:'sfan',x:p.x,y:p.y,a:t.a,r:230,arc:Math.PI*2/3,t:0,dur:.3,col:'150,215,255'});}
   else if(sk.id==='fire'){const t=aimOf(sk,260);faceTo(t.a);const tip=tipOf(p,t.a,170);p.act={k:'fire',sk,t:0,dur:.25,noMove:1};
     const hit=hitCircle(tip.x,tip.y,150,atk*1.75,sk);setTimeout(()=>{if(G===g)for(const e of hit)if(e.hp>0)hurtEnemy(e,atk*1.75);},110);
-    spr({frames:['fx_fire2','fx_fire3'],x:tip.x,y:tip.y,h:55,a:t.a,sc:2,dur:.08});
+    p.lanceKick=.07;spr({frames:['fx_fire2','fx_fire3'],x:tip.x,y:tip.y,h:55,a:t.a,sc:2,dur:.08});
     spr({frames:fr('fx_fire',4,12),x:tip.x,y:tip.y,h:55,sc:3.6,dur:.45,t:-.06});G.shake=Math.max(G.shake,3);}
   else if(sk.id==='burst'){const t=aimOf(sk,700);faceTo(t.a);p.act={k:'burst',sk,slot,t:0,a:t.a,hold:true,stage:0,noMove:1,shots:0,fireT:0};return 'hold';}
   else if(sk.id==='cspear'){p.act={k:'cspear',sk,t:0,dur:1,phase:'guard',noMove:1};}
@@ -1095,7 +1109,7 @@ function counterSpear(src){ // 막기 성공 → 공격한 쪽으로 짧게 돌�
   const p=G.p,a=src?gang(p.x,p.y,src.x,src.y):p.dirA;faceTo(a);p.act=Object.assign(p.act||{},{phase:'strike',t:0,dur:.6,a,noMove:1});p.inv=.7;
 }
 function wlUpdate(dt){
-  const g=G,p=g.p,A_=p.act;if(!A_)return;
+  const g=G,p=g.p,A_=p.act;p.lanceKick=(p.lanceKick||0)*Math.pow(.0005,dt);if(!A_)return;
   if(p.lock){if(p.act.k!=='cspear'||p.lock.k!=='stagger')p.act=null;return;}
   A_.t+=dt;const atk=p.atk,sk=A_.sk;
   if(A_.k==='sdash'){
@@ -1126,7 +1140,7 @@ function wlUpdate(dt){
     const B=G.boss;if(B&&B.hp>0)A_.a=gang(p.x,p.y,B.fx,B.fy);else{const e=nearestEnemy(p.x,p.y,800);if(e)A_.a=gang(p.x,p.y,e.x,e.y);}faceTo(A_.a);
     if(A_.hold){A_.stage=Math.min(3,Math.floor(A_.t/.4));if(A_.t>=2.2)releaseBurst();}
     else{A_.fireT-=dt;if(A_.fireT<=0&&A_.shots<A_.max){A_.shots++;A_.fireT=.22;const tip=tipOf(p,A_.a,150);
-        hitLine(tip.x,tip.y,A_.a,720,130,atk*14/3,sk);G.shake=Math.max(G.shake,7);
+        hitLine(tip.x,tip.y,A_.a,720,130,atk*14/3,sk);p.lanceKick=.24;G.shake=Math.max(G.shake,7);
         spr({frames:['fx_beam'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:720/225,sy:2.4,dur:.3});
         const m=armEnd(0,0,A_.a+Math.PI,40);moveOn(p,m.x,m.y);}
       if(A_.shots>=A_.max&&A_.fireT<=0)p.act=null;}
@@ -1134,7 +1148,7 @@ function wlUpdate(dt){
   }else if(A_.k==='cspear'){
     if(A_.phase==='strike'){const k=A_.t;
       if(k<.12){const m=armEnd(0,0,A_.a,1000*dt);moveOn(p,m.x,m.y);}
-      else if(!A_.fired){A_.fired=1;const tip=tipOf(p,A_.a,120);hitLine(tip.x,tip.y,A_.a,520,140,atk*7,sk);G.shake=Math.max(G.shake,12);
+      else if(!A_.fired){A_.fired=1;const tip=tipOf(p,A_.a,120);hitLine(tip.x,tip.y,A_.a,520,140,atk*7,sk);p.lanceKick=.28;G.shake=Math.max(G.shake,12);
         spr({frames:['fx_csp'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:520/260,sy:2.6,dur:.35});}
       else if(k<.4){const m=armEnd(0,0,A_.a+Math.PI,800*dt);moveOn(p,m.x,m.y);}
     }
