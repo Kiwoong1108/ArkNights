@@ -507,7 +507,7 @@ function gameUpdate(dt){
   // 공격
   p.cd-=dt;if(p.cd<=0&&!p.lock&&!p.act){
     if(g.mode==='train'){if(attack())p.cd=1/c.aspd;else p.cd=.05;}   // 훈련장: 자동 공격
-    else if(keys.has(BIND.atk)){attack(true);p.cd=1/c.aspd;}}        // 보스전: 기본 공격 키(기본 C)
+    else if(keys.has(BIND.atk)){attack(true);p.cd=1/1.8;}}        // 보스전: 기본 공격 키(기본 C), 초당 1.8회
   // 투사체
   for(const q of g.pr){q.age+=dt;
     if(q.k==='orb'&&q.tgt){if(q.tgt.hp<=0)q.tgt=nearestEnemy(q.x,q.y,500);if(q.tgt){const a=Math.atan2(q.tgt.y-q.y,q.tgt.x-q.x),sp=Math.hypot(q.vx,q.vy);const cur=Math.atan2(q.vy,q.vx);let da=Math.atan2(Math.sin(a-cur),Math.cos(a-cur));const na=cur+Math.max(-6*dt,Math.min(6*dt,da));q.vx=Math.cos(na)*sp;q.vy=Math.sin(na)*sp;}}
