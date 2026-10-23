@@ -785,7 +785,9 @@ const PATTERNS2=['rush','swing','slam1','grab','rush','slam2','slam3'];
 const PATTERN_NAME={swing:'가로 휘두르기',slam1:'세로 찍기 1 · 3연속 찍기',slam2:'세로 찍기 2 · 안전지대 폭발',slam3:'세로 찍기 3 · 십자 폭발',grab:'잡기',rush:'특수 · 어깨 돌진 (카운터 가능)',break:'맵 파괴',groggy:'그로기'};
 function makeBoss(x,y){return {boss:1,fx:x,fy:y,x,y:y-130,r:95,z:0,face:-1,hp:BOSS_HP,max:BOSS_HP,hit:0,frame:'walk0',pi:0,pattern:null,q:[],act:null,at:0,tele:[],walkT:0,holdDown:false,phase:1,glow:0};}
 function foes(){const B=G.boss;return B&&B.hp>0?G.en.concat([B]):G.en;}
-function hurtPlayer(d,force){const p=G.p;if((!force&&p.inv>0)||G.over||(p.lock&&p.lock.k==='fall'))return;p.hp-=d*(1-G.cls.def);p.inv=.5;p.hurt=.3;G.shake=Math.max(G.shake,6);}
+function hurtPlayer(d,force){const p=G.p;if((!force&&p.inv>0)||G.over||(p.lock&&p.lock.k==='fall'))return;p.hp-=d*(1-G.cls.def);p.inv=.5;p.hurt=.3;G.shake=Math.max(G.shake,6);
+  // 기본 공격 피격: 0.2초 경직 + 보스 반대쪽으로 캐릭터 1/3 정도(50) 밀려남. 잡기 연속기(force)에는 적용 안 함
+  if(!force&&!p.lock){const B=G.boss,a=B?gang(B.fx,B.fy,p.x,p.y):0,e=armEnd(0,0,a,CH/3);p.lock={k:'stagger',t:0,dur:.2,vx:e.x/.2,vy:e.y/.2};}}
 function fallPlayer(){const p=G.p;if(p.lock&&p.lock.k==='fall')return;p.lock={k:'fall',t:0};p.z=0;G.shake=8;}
 function bossFacePlayer(B){B.face=G.p.x>=B.fx?1:-1;}
 function crater(x,y,r){if(!walk(x,y))return;const cr=[];for(let i=0;i<7;i++){const a=Math.random()*Math.PI*2,l=r*(.8+Math.random()*.9);cr.push([a,l,(Math.random()-.5)*.5]);}G.decals.push({k:'crater',x,y,r,t:0,dur:3,cr});}
@@ -923,6 +925,9 @@ function playerLockUpdate(dt){
     if(k>=1){p.z=0;if(!walk(p.x,p.y)){ // 무너진 타일 위로 떨어지면 낙사, 멀쩡한 타일 쪽 맵 끝이면 가장자리에 착지
       if(G.broken[sectorOf(p.x,p.y)]){fallPlayer();return;}clampWalk(p);}hurtPlayer(18,true);crater(p.x,p.y,70);G.shake=12;p.lock={k:'stun',t:.5};}}
   else if(L.k==='stun'){L.t-=dt;if(L.t<=0)p.lock=null;}
+  else if(L.k==='stagger'){L.t+=dt;const k=Math.max(0,1-L.t/L.dur)*2;p.x+=L.vx*k*dt;p.y+=L.vy*k*dt;
+    if(!walk(p.x,p.y)){if(G.broken[sectorOf(p.x,p.y)]&&Math.hypot(p.x,p.y/YS)>MAP.RIN){fallPlayer();return;}clampWalk(p);}
+    if(L.t>=L.dur)p.lock=null;}
   else if(L.k==='fall'){L.t+=dt;p.z=-900*L.t*L.t;if(L.t>1){p.hp=0;G.over={win:false,fall:true};}}
 }
 function bossUpdate(dt){
