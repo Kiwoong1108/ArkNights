@@ -815,9 +815,10 @@ function segDist(px,py,ax,ay,bx,by){ // 지면 좌표 기준 점-선분 거리
 }
 const armEnd=(x,y,a,len)=>({x:x+Math.cos(a)*len,y:y+Math.sin(a)*len*YS});
 function onArms(t,px,py){for(let i=0;i<t.n;i++){const e=armEnd(t.x,t.y,t.ang+i*Math.PI*2/t.n,t.len);if(segDist(px,py,t.x,t.y,e.x,e.y)<t.w/2)return true;}return false;}
+// 페이즈별로 쓸 수 있는 패턴. 이 중에서 무작위(같은 패턴 연속 금지)
 const PATTERNS1=['swing','slam1','slam2','slam3','grab'];
-const PATTERNS2=['rush','swing','slam1','grab','rush','slam2','slam3'];
-const PATTERNS3=['rush','swing','slam1','grab','rush','slam2']; // 3페이즈: 십자·대각선 폭발 없음
+const PATTERNS2=['swing','slam1','slam2','slam3','grab','rush'];   // 2페이즈부터 어깨 돌진
+const PATTERNS3=['swing','slam1','slam2','grab','rush'];           // 3페이즈: 십자·대각선 폭발 없음
 const PATTERN_NAME={swing:'가로 휘두르기',slam1:'세로 찍기 1 · 3연속 찍기',slam2:'세로 찍기 2 · 안전지대 폭발',slam3:'세로 찍기 3 · 십자 폭발',grab:'잡기',rush:'특수 · 어깨 돌진 (카운터 가능)',break:'맵 파괴',groggy:'그로기'};
 function makeBoss(x,y){return {boss:1,fx:x,fy:y,x,y:y-130,r:95,z:0,face:-1,hp:BOSS_HP,max:BOSS_HP,hit:0,frame:'walk0',pi:0,pattern:null,q:[],act:null,at:0,tele:[],walkT:0,holdDown:false,phase:1,glow:0};}
 function foes(){const B=G.boss;return B&&B.hp>0?G.en.concat([B]):G.en;}
@@ -861,7 +862,7 @@ function phaseTarget(B){return B.hp<=B.max/3?3:B.hp<=B.max*2/3?2:1;}
 function queuePattern(B){
   let pat;
   if(phaseTarget(B)>B.phase&&!G.broken.every(b=>b))pat='break';
-  else{const L=B.phase>=3?PATTERNS3:B.phase>=2?PATTERNS2:PATTERNS1;pat=L[B.pi%L.length];B.pi++;}
+  else{const L=(B.phase>=3?PATTERNS3:B.phase>=2?PATTERNS2:PATTERNS1).filter(x=>x!==B.lastPat);pat=L[Math.floor(Math.random()*L.length)];B.lastPat=pat;B.pi++;}
   B.pattern=pat;const Q=[];
   if(pat==='swing'){
     let tele;
