@@ -42,7 +42,7 @@ const CLASSES=[
   weps:[{img:'gauntL',h:.6,r:-8,ax:.5,ay:.55,x:-.21,y:-.37,back:1},{img:'gauntR',h:.56,r:8,ax:.5,ay:.55,x:.25,y:-.34,split:.5}]},
  {id:'infighter',name:'인파이터',wep:'건틀릿',hp:160,atk:14,aspd:1.1,def:.22,mode:'melee',range:165,arc:120,c1:'#ffb347',c2:'#fff0c8',
   weps:[{img:'ifL',h:.5,r:-6,ax:.5,ay:.5,x:-.21,y:-.37,back:1},{img:'ifR',h:.5,r:6,ax:.5,ay:.5,x:.27,y:-.34,split:.47}]},
- {id:'devilhunter',name:'데빌헌터',wep:'총기',hp:110,atk:8,aspd:2,def:.08,mode:'shot',speed:1000,pierce:0,c1:'#ffd27a',c2:'#fff',
+ {id:'devilhunter',name:'데빌헌터',wep:'총기',hp:110,atk:13,aspd:2,def:.08,mode:'shot',speed:1000,pierce:0,c1:'#ffd27a',c2:'#fff',
   weps:[{img:'shotgun',h:.33,r:50,ax:.5,ay:.5,x:-.06,y:-.56,back:1},{img:'rifle',h:.42,r:-50,ax:.5,ay:.5,x:-.06,y:-.56,back:1,fx:1},{img:'handgun',h:.32,r:0,ax:.85,ay:.72,x:.2,y:-.3,fx:1}]},
  {id:'blaster',name:'블래스터',wep:'런처',hp:130,atk:17,aspd:.65,def:.15,mode:'shell',speed:620,pierce:0,splash:105,c1:'#ff6a3a',c2:'#ffd27a',
   weps:[{img:'launcher',h:1.15,r:90,ax:.5,ay:.5,x:.1,y:-.33}]},
@@ -1553,7 +1553,8 @@ const DH_SKILLS=[
   desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.75~1.25초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
 ];
 DH_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
-const dmgOf=v=>v/100; // skHit에 넘길 배수(공격력 100 기준 피해 v)
+const DH_SCALE=0.955; // 데빌헌터 스킬 전체 배율(공격력 13 기준 총 DPS 약 55에 맞춤, 스킬 간 비율 유지)
+const dmgOf=v=>v*DH_SCALE/100; // skHit에 넘길 배수(공격력 100 기준 설계값 v)
 /* 장착: 총마다 Q·E 두 칸 */
 let DH_LO=null;
 function dhLO(){if(DH_LO)return DH_LO;let l=null;try{l=JSON.parse(localStorage.getItem('arknights.dhlo')||'null');}catch(err){}
