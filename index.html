@@ -473,9 +473,9 @@ function startGame(mode='boss'){
   G={cls:c,p:{x:0,y:0,face:1,moving:false,t:0,hp:c.hp,max:c.hp,atk:c.atk,lvl:1,xp:0,next:8,cd:.5,inv:0,hurt:0,lvlFx:0},
      cam:{x:0,y:-60},en:[],pr:[],gems:[],fx:[],nums:[],time:0,kills:0,spawnAcc:0,paused:false,over:null,
      boss:null,tele:[],waves:[],decals:[],shake:0,broken:SECTORS.map(()=>false),falling:[],cds:{},cdMax:{},sky:null};
-  G.mode=mode;G.fields=[];G.soul=0;G.trainGoal=500;
+  G.mode=mode;G.fields=[];G.soul=0;G.trainGoal=300;
   if(mode==='boss'){G.boss=makeBoss(0,-200);G.p.y=230;}
-  for(let i=0;i<24;i++)G.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
+  if(mode==='train')for(let i=0;i<24;i++)G.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
 }
 function backToLobby(){if(tr)return;saveInv();transition(.35,()=>{scene='lobby';G=null;lobby.p.x=SPAWN.x;lobby.p.y=SPAWN.y;lobby.p.face=1;lobby.cam.x=SPAWN.x;lobby.cam.y=SPAWN.y-70;},.6);}
 function togglePause(){if(G&&!G.over)G.paused=!G.paused;}
@@ -528,7 +528,7 @@ function gameUpdate(dt){
   updFollow(c,p,p.face,dt);
   if(c.drag&&p.moving&&Math.random()<dt*30){const d=dragTip(p,p.face),sp=Math.random()<.3;g.fx.push({k:'bit',x:d.x+(Math.random()-.5)*10,y:d.y-2,vx:(Math.random()-.5)*60,vy:-30-Math.random()*50,t:0,dur:sp?.25:.4,c:sp?'#ffb066':'#6d7280'});}
   const k=1-Math.pow(.002,dt);g.cam.x+=(p.x-g.cam.x)*k;g.cam.y+=(p.y-60-g.cam.y)*k;
-  if(g.mode==='train'){g.spawnAcc+=dt*(1.1+g.time/22)*.5;while(g.spawnAcc>=1&&g.en.length<320){g.spawnAcc-=1;spawnEnemy();}
+  if(g.mode==='train'){g.spawnAcc+=dt*(1.1+g.time/22)*.25;while(g.spawnAcc>=1&&g.en.length<320){g.spawnAcc-=1;spawnEnemy();}
     playerLockUpdate(dt);for(const d of g.decals)d.t+=dt;g.decals=g.decals.filter(d=>d.t<d.dur);}
   else bossUpdate(dt);if(g.over)return;g.shake=Math.max(0,g.shake-dt*40);
   // 적
@@ -561,7 +561,7 @@ function gameUpdate(dt){
   // 경험치
   for(const s of g.gems){const dx=p.x-s.x,dy=py-s.y,d=Math.hypot(dx,dy);if(d<140)s.mag=true;if(s.mag){const sp=420+(140-Math.min(140,d))*4;s.x+=dx/(d||1)*sp*dt;s.y+=dy/(d||1)*sp*dt;if(d<26){s.got=true;p.xp+=s.v;if(g.mode==='train'){INV.soul++;g.soul++;}}}}
   g.gems=g.gems.filter(s=>!s.got);
-  if(Math.random()<dt*.8)g.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
+  if(g.mode==='train'&&Math.random()<dt*.8)g.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
   while(p.xp>=p.next){p.xp-=p.next;p.lvl++;p.next=Math.floor(8+p.lvl*4.5);p.atk*=1.06;p.max+=6;p.hp=Math.min(p.max,p.hp+p.max*.15);p.lvlFx=1.2;
     if(g.mode==='train')for(const k in TRAIN_UNLOCK)if(p.lvl===TRAIN_UNLOCK[k])(g.choiceQ=g.choiceQ||[]).push(k);}
   if(g.mode==='train'&&!g.choice&&g.choiceQ&&g.choiceQ.length)openChoice(g.choiceQ.shift());
