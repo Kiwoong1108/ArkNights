@@ -1103,7 +1103,7 @@ function useSkill(k){
   setCd(k,cdOf(sk));
   // 임시 카운터(워로드 외): 보스 앞쪽에서 써야 성공
   const B=g.boss;g.fx.push({k:'cring',x:p.x,y:p.y,t:0,dur:.4});
-  if(B&&B.hp>0&&gd(p.x,p.y,B.fx,B.fy)<520){hurtEnemy(B,p.atk*2*SKILL_DMG);if(B.counterable&&bossFront(B,p))bossCounter(B);else addStagger(B,STG['중']);}
+  if(B&&B.hp>0&&gd(p.x,p.y,B.fx,B.fy)<520){hurtEnemy(B,p.atk*2);if(B.counterable&&bossFront(B,p))bossCounter(B);else addStagger(B,STG['중']);}
 }
 /* ---- 그리기 ---- */
 function groundPath(fn){ctx.save();ctx.scale(1,YS);fn();ctx.restore();}
@@ -1160,8 +1160,8 @@ function drawBossHud(){
 
 /* ================= 워로드 스킬 =================
    방패 스킬(연푸른 빛) 4종 + 랜스 스킬(주황·빨강 빛) 4종. 지면 좌표 기준 판정
-   데미지 상수는 공격력 배수이며, 실제 피해는 SKILL_DMG(0.75)를 곱해 들어간다 */
-const SKILL_DMG=.75;
+   데미지 상수는 공격력 배수. 워로드 스킬만 너프 0.75배(WL_NERF)를 곱한다 */
+const WL_NERF=.75;
 const sang=a=>Math.atan2(Math.sin(a)*YS,Math.cos(a)); // 지면 각도 → 화면 각도
 const footOf=e=>e.boss?{x:e.fx,y:e.fy,r:95}:{x:e.x,y:e.y,r:e.r};
 const fr=(p,a,b)=>Array.from({length:b-a+1},(_,i)=>p+(a+i));
@@ -1241,7 +1241,7 @@ function bossFront(B,p){const fa=B.faceA!=null?B.faceA:(B.face>0?0:Math.PI);let 
 /* 한 번의 시전(타격 묶음): 무력화는 시전당 1번만, counter는 이 타격이 카운터 가능한지 */
 function cast(sk,stg,o={}){return Object.assign({sk,stg:stg||0,given:false,counter:!!sk.counter},o);}
 function addStagger(B,v){if(!B||B.hp<=0||B.pattern==='groggy'||!v)return;B.stg=Math.min(100,(B.stg||0)+v);if(B.stg>=100){B.stg=0;bossGroggy(B,2.5,'무력화!');}}
-function skHit(e,dmg,C){hurtEnemy(e,dmg*G.p.atk*SKILL_DMG); // dmg는 공격력 배수
+function skHit(e,dmg,C){hurtEnemy(e,dmg*G.p.atk*(C.sk&&C.sk.fam&&C.sk.fam!=='dh'?WL_NERF:1)); // dmg는 공격력 배수, 워로드 스킬만 0.75배
   if(e.boss){if(C.counter&&e.counterable&&bossFront(e,G.p))bossCounter(e);if(C.stg&&!C.given){C.given=true;addStagger(e,C.stg);}}
   if(C.onHit)C.onHit(e);}
 function hitCircle(x,y,r,dmg,C,kb){const out=[];for(const e of foes()){const f=footOf(e);if(gd(x,y,f.x,f.y)<r+f.r){skHit(e,dmg,C);out.push(e);
@@ -1550,7 +1550,7 @@ const DH_SKILLS=[
   desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.75~1.25초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
 ];
 DH_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
-const dmgOf=v=>v/100/SKILL_DMG; // skHit에 넘길 배수(공격력 100 기준 최종 피해 v)
+const dmgOf=v=>v/100; // skHit에 넘길 배수(공격력 100 기준 피해 v)
 /* 장착: 총마다 Q·E 두 칸 */
 let DH_LO=null;
 function dhLO(){if(DH_LO)return DH_LO;let l=null;try{l=JSON.parse(localStorage.getItem('arknights.dhlo')||'null');}catch(err){}
