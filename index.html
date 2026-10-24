@@ -294,10 +294,12 @@ const ringPos=k=>{const a=Math.PI/2+k*Math.PI*2/12;return {x:PLAZA.x+Math.cos(a)
 const peds=CLASSES.map((c,i)=>Object.assign({cls:c,face:1,t:Math.random()*3},ringPos(i+1)));
 const portal={x:PLAZA.x-175,y:PLAZA.y+24,mode:'boss',label:'보스전'}; // 가운데 단상 왼쪽
 const trainPortal={x:PLAZA.x+175,y:PLAZA.y+24,mode:'train',label:'카오스 던전',train:1}; // 오른쪽: 훈련장(일반 몬스터)
-const signObj=ringPos(0);
+const dummySpot=Object.assign(ringPos(0),{mode:'dummy',label:'훈련장'}); // 안내판 자리: 훈련장(가만히 서 있는 보스)
+const signObj={x:dummySpot.x-190,y:dummySpot.y-20};
 function interactables(){
   const L=[];for(const p of peds)L.push({kind:'ped',obj:p,x:p.x,y:p.y,headY:p.y-14-CH-34});
   for(const o of [portal,trainPortal])L.push({kind:'portal',obj:o,x:o.x,y:o.y,headY:o.y-262});
+  L.push({kind:'portal',obj:dummySpot,x:dummySpot.x,y:dummySpot.y,headY:dummySpot.y-250});
   L.push({kind:'sign',obj:signObj,x:signObj.x,y:signObj.y,headY:signObj.y-120});
   return L;
 }
@@ -345,6 +347,14 @@ function drawPortal(o,t,charge){
   ctx.restore();
   text(o.label,x,y+44,18,o.train?'#ffd27a':'#9ad4ff','center');
 }
+function drawDummySpot(charge){ // 훈련장 입구: 발판 위 작은 미노타우르스
+  const {x,y}=dummySpot;ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(x,y+8,86,20,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#3a3e4b';ctx.fillRect(x-74,y-6,148,20);ctx.fillStyle='#6a4a3a';ctx.beginPath();ctx.ellipse(x,y-6,74,24,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=`rgba(255,120,100,${.35+.2*Math.sin(T*3)+charge*.5})`;ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(x,y-6,66,20,0,0,Math.PI*2);ctx.stroke();
+  const im=IMG.b_walk0,m=BOSS_META.walk0;if(im){const sc=.95;ctx.save();ctx.translate(x,y-8+Math.sin(T*2)*2);ctx.scale(-1,1);ctx.drawImage(im,-m.ax*sc,-m.ay*sc,im.width*sc,im.height*sc);ctx.restore();}
+  if(charge>0){ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle=`rgba(255,200,180,${charge*.5})`;ctx.beginPath();ctx.ellipse(x,y-80,70,100,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+  text('훈련장',x,y+44,18,'#ff9a8a','center');
+}
 function drawSign(){
   const {x,y}=signObj;ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(x,y,46,10,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#4a3524';ctx.fillRect(x-6,y-84,12,84);ctx.fillStyle='#6b4c30';ctx.fillRect(x-56,y-118,112,52);ctx.fillStyle='#8a6640';ctx.fillRect(x-56,y-118,112,5);
@@ -365,6 +375,7 @@ function lobbyUpdate(dt){
   p.moving=a.m>.05;if(a.x>.2)p.face=1;else if(a.x<-.2)p.face=-1;
   p.x+=a.x*540*dt;p.y+=a.y*540*dt;
   for(const q of peds){const dx=p.x-q.x,dy=p.y-q.y,e=(dx/84)**2+(dy/34)**2;if(e<1){if(e<1e-4){p.y=q.y+34;continue;}const s=1/Math.sqrt(e);p.x=q.x+dx*s;p.y=q.y+dy*s;}}
+  {const dx=p.x-dummySpot.x,dy=p.y-dummySpot.y,e=(dx/70)**2+(dy/26)**2;if(e<1&&e>1e-4){const s=1/Math.sqrt(e);p.x=dummySpot.x+dx*s;p.y=dummySpot.y+dy*s;}}
   {const dx=p.x-signObj.x,dy=p.y-signObj.y,e=(dx/44)**2+(dy/18)**2;if(e<1&&e>1e-4){const s=1/Math.sqrt(e);p.x=signObj.x+dx*s;p.y=signObj.y+dy*s;}}
   for(const o of [portal,trainPortal]){const dx=p.x-o.x,dy=p.y-o.y,e=(dx/78)**2+(dy/26)**2;if(e<1&&e>1e-4){const s=1/Math.sqrt(e);p.x=o.x+dx*s;p.y=o.y+dy*s;}}
   {const dx=p.x-PLAZA.x,dy=p.y-PLAZA.y,e=(dx/(PLAZA.rx*.93))**2+(dy/(PLAZA.ry*.93))**2;if(e>1){const s=1/Math.sqrt(e);p.x=PLAZA.x+dx*s;p.y=PLAZA.y+dy*s;}}
@@ -417,6 +428,7 @@ function lobbyRender(){
     text(q.cls.name,q.x,q.y+44,20,sel?'#e8c06a':READY.has(q.cls.id)?'#e9e6dc':'#8a8f9e','center');if(sel)text('선택됨',q.x,q.y+68,12,'#e8c06a','center');}});
   for(const o of [portal,trainPortal])ents.push({y:o.y,draw:()=>drawPortal(o,T,chObj===o?charge:0)});
   ents.push({y:signObj.y,draw:drawSign});
+  ents.push({y:dummySpot.y,draw:()=>drawDummySpot(chObj===dummySpot?charge:0)});
   ents.push({y:p.y,draw:()=>{
     const f=L.fx;
     if(f&&f.type==='select'){ // 캐릭터를 감싸는 빛
@@ -474,7 +486,7 @@ function startGame(mode='boss'){
      cam:{x:0,y:-60},en:[],pr:[],gems:[],fx:[],nums:[],time:0,kills:0,spawnAcc:0,paused:false,over:null,
      boss:null,tele:[],waves:[],decals:[],shake:0,broken:SECTORS.map(()=>false),falling:[],cds:{},cdMax:{},sky:null};
   G.mode=mode;G.fields=[];G.soul=0;G.trainGoal=300;
-  if(mode==='boss'){G.boss=makeBoss(0,-200);G.p.y=230;}
+  if(mode==='boss'||mode==='dummy'){G.boss=makeBoss(0,-200);G.p.y=230;if(mode==='dummy'){G.boss.dummy=1;G.boss.max=G.boss.hp=99999;G.dlog=[];}}
   if(mode==='train')for(let i=0;i<24;i++)G.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
 }
 function backToLobby(){if(tr)return;saveInv();transition(.35,()=>{scene='lobby';G=null;lobby.p.x=SPAWN.x;lobby.p.y=SPAWN.y;lobby.p.face=1;lobby.cam.x=SPAWN.x;lobby.cam.y=SPAWN.y-70;},.6);}
@@ -489,7 +501,7 @@ function spawnEnemy(){
 function nearestEnemy(x,y,maxD){let b=null,bd=maxD*maxD;for(const e of foes()){const d=(e.x-x)**2+(e.y-y)**2;if(d<bd){bd=d;b=e;}}return b;}
 function hurtEnemy(e,base){
   const crit=Math.random()<.15;const dmg=base*(crit?1.8:1)*(.9+Math.random()*.2);
-  e.hp-=dmg;e.hit=.1;G.nums.push({x:e.x+(Math.random()-.5)*16,y:e.y-e.r-6,v:Math.round(dmg),c:crit?'#ffd34d':'#ffffff',t:0,crit});
+  e.hp-=dmg;if(e.boss&&G.mode==='dummy'){G.dlog.push({t:G.time,v:dmg});if(G.dfirst==null)G.dfirst=G.time;G.dlast=G.time;}e.hit=.1;G.nums.push({x:e.x+(Math.random()-.5)*16,y:e.y-e.r-6,v:Math.round(dmg),c:crit?'#ffd34d':'#ffffff',t:0,crit});
 }
 function killCheck(){
   G.en=G.en.filter(e=>{if(e.hp>0)return true;G.kills++;G.gems.push({x:e.x,y:e.y,v:ETYPES[e.type].xp,mag:false});
@@ -1080,6 +1092,10 @@ function playerLockUpdate(dt){
 }
 function bossUpdate(dt){
   const B=G.boss;if(!B||B.hp<=0)return;
+  if(B.dummy){B.hit=Math.max(0,B.hit-dt);if(!B.act&&B.q.length){B.act=B.q.shift();B.at=0;if(B.act.start)B.act.start();}
+    if(!B.act){B.pattern=null;B.q=[];B.frame='walk0';bossFacePlayer(B);}  // 훈련장: 공격하지 않고 서 있음(무력화되면 그로기만)
+    if(B.act){B.at+=dt;const a=B.act,k=a.dur>0?Math.min(1,B.at/a.dur):1;if(a.update)a.update(dt,k);if(B.act===a&&B.at>=a.dur){B.act=B.q.shift()||null;B.at=0;if(B.act&&B.act.start)B.act.start();}}
+    if(B.hp<B.max*.5)B.hp=B.max;B.x=B.fx;B.y=B.fy-130;playerLockUpdate(dt);for(const d of G.decals)d.t+=dt;G.decals=G.decals.filter(d=>d.t<d.dur);return;}
   B.hit=Math.max(0,B.hit-dt);
   if(!B.act){if(!B.q.length)queuePattern(B);B.act=B.q.shift();B.at=0;if(B.act.start)B.act.start();}
   const a=B.act;if(a){B.at+=dt;const k=a.dur>0?Math.min(1,B.at/a.dur):1;if(a.update)a.update(dt,k);
@@ -1159,6 +1175,14 @@ function drawBoss(){
 }
 function drawBossHud(){
   const B=G.boss;if(!B)return;const w=Math.min(520,VW-40),x=(VW-w)/2,y=34;
+  if(B.dummy){const g=G;if(g.dlast!=null&&g.time-g.dlast>5){g.dlog=[];g.dfirst=null;g.dlast=null;}  // 5초간 안 때리면 초기화
+    const tot=g.dlog.reduce((a,b)=>a+b.v,0),el=g.dfirst!=null?Math.max(1,g.time-g.dfirst):0,last10=g.dlog.filter(d=>g.time-d.t<=10).reduce((a,b)=>a+b.v,0);
+    text('훈련장 · 붉은 미노타우르스',VW/2,y-8,14,'#ff8a8f','center');
+    pixPanel(x+w/2-170,y+2,340,58);
+    text(`DPS  ${el?(tot/el).toFixed(1):'-'}`,x+w/2-150,y+20,16,'#e9e6dc');text(`최근 10초  ${(last10/Math.min(10,el||10)).toFixed(1)}`,x+w/2-150,y+44,12,'#9aa0b4');
+    text(`누적 ${Math.round(tot)}`,x+w/2+150,y+20,12,'#e9e6dc','right');text(`${el?el.toFixed(1):'0.0'}초`,x+w/2+150,y+44,12,'#9aa0b4','right');
+    ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(x-3,y+64,w+6,10);ctx.fillStyle='#3a3010';ctx.fillRect(x,y+66,w,6);ctx.fillStyle='#ffd34d';ctx.fillRect(x,y+66,w*(B.stg||0)/100,6);
+    text('5초 동안 공격하지 않으면 초기화 · ESC로 나가기',VW/2,y+90,12,'#6b7080','center');return;}
   text(bossDebug()?`${BOSS_INFO.name}  ·  ${B.phase}페이즈`:BOSS_INFO.name,VW/2,y-8,14,'#ff8a8f','center');
   ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(x-3,y+3,w+6,18);ctx.fillStyle='#3a1015';ctx.fillRect(x,y+6,w,12);
   ctx.fillStyle='#d8323f';ctx.fillRect(x,y+6,w*Math.max(0,B.hp)/B.max,12);ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(x,y+6,w*Math.max(0,B.hp)/B.max,3);
