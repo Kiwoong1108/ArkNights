@@ -538,7 +538,8 @@ function gameUpdate(dt){
   for(const s of g.gems){const dx=p.x-s.x,dy=py-s.y,d=Math.hypot(dx,dy);if(d<140)s.mag=true;if(s.mag){const sp=420+(140-Math.min(140,d))*4;s.x+=dx/(d||1)*sp*dt;s.y+=dy/(d||1)*sp*dt;if(d<26){s.got=true;p.xp+=s.v;if(g.mode==='train'){INV.soul++;g.soul++;}}}}
   g.gems=g.gems.filter(s=>!s.got);
   if(Math.random()<dt*.8)g.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
-  while(p.xp>=p.next){p.xp-=p.next;p.lvl++;p.next=Math.floor(8+p.lvl*4.5);p.atk*=1.06;p.max+=6;p.hp=Math.min(p.max,p.hp+p.max*.15);p.lvlFx=1.2;}
+  while(p.xp>=p.next){p.xp-=p.next;p.lvl++;p.next=Math.floor(8+p.lvl*4.5);p.atk*=1.06;p.max+=6;p.hp=Math.min(p.max,p.hp+p.max*.15);p.lvlFx=1.2;
+    if(g.mode==='train')for(const k in TRAIN_UNLOCK)if(p.lvl===TRAIN_UNLOCK[k])g.fx.push({k:'ctext',x:p.x,y:p.y-CH-90,t:0,dur:1.6,label:`${keyName(BIND[k])} 스킬칸 열림 (${TRAIN_TIER[k]})`,col:'#ffd27a',size:18});}
   for(const f of g.fx){f.t+=dt;if(f.vx!==undefined){f.x+=f.vx*dt;f.y+=f.vy*dt;f.vx*=.9;f.vy*=.9;}}
   g.fx=g.fx.filter(f=>f.t<f.dur);
   for(const n of g.nums){n.t+=dt;n.y-=40*dt;}g.nums=g.nums.filter(n=>n.t<.7);
@@ -643,16 +644,25 @@ function gameRender(){
 }
 
 /* 스킬창 (로비에서 K): 왼쪽 스킬 목록은 스크롤, 오른쪽은 고른 스킬의 정보 */
-const skillWin={open:false,scroll:0,sel:0,drag:null,listRect:null,cards:[],ratio:1,ox:0,oy:0,move:null,headerRect:null};
+const skillWin={mode:'boss',open:false,scroll:0,sel:0,drag:null,listRect:null,cards:[],ratio:1,ox:0,oy:0,move:null,headerRect:null};
 let skillDrag=null;
 /* 캐릭터별 장착 스킬: s1~s3 일반 스킬 칸, id 아이덴티티 칸 (아이덴티티 종류만) */
-function loadoutOf(cls){
-  if(!cls.loadout){let l=null;try{l=JSON.parse(localStorage.getItem('arknights.loadout4.'+cls.id)||'null');}catch(err){}
-    cls.loadout=cls.id==='warlord'&&!l?{s1:0,s2:1,s3:7,id:null}:{s1:l?null:0,s2:null,s3:null,id:null};if(l)for(const k in cls.loadout)if(Number.isInteger(l[k]))cls.loadout[k]=l[k];}
-  return cls.loadout;
+/* 스킬 장착 구성은 보스전용·훈련장용 두 벌. 인게임에서는 그 모드의, 로비에서는 스킬창에서 고른 쪽이 쓰인다 */
+const curMode=()=>scene==='game'&&G?G.mode:(skillWin.mode||'boss');
+const TRAIN_TIER={s1:'약',s2:'중',s3:'강'},TRAIN_UNLOCK={s1:5,s2:10,s3:15}; // 훈련장: Q=약, W=중, E=강 / 5·10·15레벨에 열림
+function loadoutOf(cls,m=curMode()){
+  cls.loadouts=cls.loadouts||{};
+  if(!cls.loadouts[m]){let l=null;const key=m==='train'?'arknights.loadoutT1.':'arknights.loadout4.';try{l=JSON.parse(localStorage.getItem(key+cls.id)||'null');}catch(err){}
+    let d={s1:null,s2:null,s3:null,id:null};
+    if(!l){if(m==='boss')d=cls.id==='warlord'?{s1:0,s2:1,s3:7,id:null}:{s1:0,s2:null,s3:null,id:null};
+      else if(cls.id==='warlord')d={s1:1,s2:0,s3:7,id:null};}  // 훈련장 기본: 약 방패 돌진 / 중 배쉬 / 강 버스트 캐넌
+    else for(const k in d)if(Number.isInteger(l[k]))d[k]=l[k];
+    cls.loadouts[m]=d;}
+  return cls.loadouts[m];
 }
-function saveLoadout(cls){try{localStorage.setItem('arknights.loadout4.'+cls.id,JSON.stringify(cls.loadout));}catch(err){}}
-function slotAccepts(k,sk){return !!sk&&((k==='id')===(sk.type==='아이덴티티'));}
+function saveLoadout(cls,m=curMode()){const key=m==='train'?'arknights.loadoutT1.':'arknights.loadout4.';try{localStorage.setItem(key+cls.id,JSON.stringify(loadoutOf(cls,m)));}catch(err){}}
+function slotAccepts(k,sk){if(!sk)return false;if(curMode()==='train'){if(k==='id')return false;return !sk.tier||sk.tier===TRAIN_TIER[k];}return (k==='id')===(sk.type==='아이덴티티');}
+const slotLocked=k=>scene==='game'&&G&&G.mode==='train'&&(k==='id'||G.p.lvl<(TRAIN_UNLOCK[k]||0));
 function equip(cls,k,idx,from){
   const L=loadoutOf(cls),prev=L[k];
   for(const q of ['s1','s2','s3','id'])if(L[q]===idx)L[q]=null;
@@ -682,11 +692,12 @@ function drawSkillWin(){
   // 제목줄을 끌어서 이동: 기본 위치 + 끈 만큼, 화면 밖으로는 못 나가게
   const x=Math.round(Math.max(0,Math.min(VW-w,(VW-w)/2+skillWin.ox))),y=Math.round(Math.max(0,Math.min(VH-h,Math.max(12,(barTop-h)/2)+skillWin.oy)));
   skillWin.ox=x-(VW-w)/2;skillWin.oy=y-Math.max(12,(barTop-h)/2);
-  skillWin.headerRect={x,y,w:w-56,h:46};
+  skillWin.headerRect={x:x+340,y,w:w-56-340,h:46}; // 제목줄 빈 곳을 끌어서 이동
   if(inRect(skillWin.headerRect,mouse.x,mouse.y)||skillWin.move)cv.style.cursor='move',uiHover='move';
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('스킬',x+22,y+28,16,'#e8c06a');text(current.name,x+70,y+29,12,'#9aa0b4');
-  if(w>520)text('목록의 스킬을 아래 스킬칸으로 끌어서 장착',x+w-56,y+29,12,'#6b7080','right');
+  button(x+176,y+12,74,30,'보스',()=>{skillWin.mode='boss';},{active:skillWin.mode==='boss'});button(x+256,y+12,74,30,'훈련장',()=>{skillWin.mode='train';},{active:skillWin.mode==='train'});
+  if(w>640)text(skillWin.mode==='train'?'훈련장: Q 약 · W 중 · E 강, 5·10·15레벨에 열림':'목록의 스킬을 아래 스킬칸으로 끌어서 장착',x+w-56,y+29,12,'#6b7080','right');
   button(x+w-44,y+12,30,30,'X',()=>{skillWin.open=false;});
   const top=y+54,bot=y+h-18,gap=14,lw=Math.round((w-22*2-gap)*.52),rw=w-44-gap-lw;
   // 목록
@@ -701,7 +712,7 @@ function drawSkillWin(){
     const isz=ch-28;slotBox(lr.x+14,cy+14,isz);drawIcon(sk,lr.x+14,cy+14,isz);
     const tx=lr.x+14+isz+16;
     text(sk.name,tx,cy+24,14,sel?'#e8c06a':'#e9e6dc','left',false);
-    text(`종류  ${sk.type}`,tx,cy+48,12,'#c9c9d2','left',false);
+    text(`종류  ${sk.type}${sk.tier?'  ·  '+sk.tier:''}`,tx,cy+48,12,'#c9c9d2','left',false);
     text(`재사용 대기시간  ${sk.cd}`,tx,cy+68,12,'#8a90a4','left',false);
     const eq=slotOfSkill(current,i);if(eq){const lab='장착 '+keyName(BIND[eq]);ctx.font=`12px ${FONT}`;const tw=ctx.measureText(lab).width+12;ctx.fillStyle='rgba(232,192,106,.18)';ctx.fillRect(lr.x+cw-tw-12,cy+12,tw,20);text(lab,lr.x+cw-12-tw/2,cy+23,12,'#e8c06a','center',false);}
     const vy=Math.max(cy,lr.y),vh=Math.min(cy+ch,lr.y+lr.h)-vy;if(vh>4){ui.push({x:lr.x,y:vy,w:cw,h:vh,fn(){skillWin.sel=i;}});skillWin.cards.push({i,x:lr.x,y:vy,w:cw,h:vh,ix:lr.x+14,iy:cy+14,isz});}
@@ -713,7 +724,7 @@ function drawSkillWin(){
   ctx.fillStyle='rgba(24,27,38,.9)';ctx.fillRect(rx,ry,rw,rh);ctx.fillStyle='#4a4f60';ctx.fillRect(rx,ry,rw,3);ctx.fillRect(rx,ry+rh-3,rw,3);ctx.fillRect(rx,ry,3,rh);ctx.fillRect(rx+rw-3,ry,3,rh);
   text(sk.name,rx+rw/2,ry+30,16,sk.fam==='lance'?'#ff9a6a':sk.fam==='shield'?'#9ad4ff':'#e8c06a','center',false);
   ctx.fillStyle='#3a3e4b';ctx.fillRect(rx+18,ry+52,rw-36,2);
-  text(`${sk.type}${sk.counter?'  ·  카운터':''}  ·  재사용 대기시간 ${sk.cd}`,rx+rw/2,ry+72,12,'#9aa0b4','center',false);
+  text(`${sk.type}${sk.tier?'  ·  '+sk.tier:''}${sk.counter?'  ·  카운터':''}  ·  재사용 대기시간 ${sk.cd}`,rx+rw/2,ry+72,12,'#9aa0b4','center',false);
   wrapText(sk.desc,rx+20,ry+104,rw-40,22,12,'#e9e6dc');
   {const slot=slotOfSkill(current,skillWin.sel),cid=slot&&eqOf(current)[slot],c=cid&&CORES[cid];const owned=Object.keys(CORES).filter(k=>CORES[k].skill===sk.id&&INV.cores[k]).map(k=>CORES[k].name);
     if(sk.fam&&CORES_ON)text(c&&c.skill===sk.id?`코어 장착: ${c.name}`:owned.length?`보유 코어: ${owned.join(', ')}`:'코어 없음',rx+20,ry+rh-96,12,c&&c.skill===sk.id?'#c49bff':'#6b7080');}
@@ -778,6 +789,10 @@ function drawSkillBar(cls){
   const L=loadoutOf(cls),list=skillsOf(cls),dragSk=skillDrag&&skillDrag.started&&!skillDrag.core?list[skillDrag.idx]:null,dragCore=skillDrag&&skillDrag.started&&skillDrag.core?CORES[skillDrag.core]:null,eq=eqOf(cls);
   for(const q of skillBarLayout()){const sk=L[q.k]!=null?list[L[q.k]]:null;
     drawSlot(q.x,q.y,q.size,keyName(BIND[q.k]),BIND[q.k],q.k==='id',sk?sk.name:null,(dragSk&&slotAccepts(q.k,dragSk))||(dragCore&&sk&&sk.id===dragCore.skill),sk);
+    if(curMode()==='train'){const lk=slotLocked(q.k);if(q.k==='id'||lk){ctx.fillStyle='rgba(5,6,10,.72)';ctx.fillRect(q.x,q.y,q.size,q.size);
+        ctx.fillStyle='#9aa0b4';ctx.fillRect(q.x+q.size/2-7,q.y+q.size/2-2,14,11);ctx.strokeStyle='#9aa0b4';ctx.lineWidth=3;ctx.beginPath();ctx.arc(q.x+q.size/2,q.y+q.size/2-3,5,Math.PI,0);ctx.stroke();
+        if(q.k!=='id')text('Lv'+TRAIN_UNLOCK[q.k],q.x+q.size/2,q.y+q.size-9,12,'#e9e6dc','center');}
+      if(q.k!=='id')text(TRAIN_TIER[q.k],q.x+q.size-10,q.y+12,12,'#ffd27a','center');}
     const cid=CORES_ON&&eq[q.k];if(cid&&CORES[cid])drawCoreGem(q.x+q.size-8,q.y+q.size-9,7,CORES[cid].n,!(sk&&sk.id===CORES[cid].skill));
     const cd=scene==='game'&&G&&G.cds[q.k]||0;if(cd>0){const f=cd/(G.cdMax[q.k]||1);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(q.x+2,q.y+2+(q.size-4)*(1-f),q.size-4,(q.size-4)*f);text(Math.ceil(cd)+'',q.x+q.size/2,q.y+q.size/2,16,'#fff','center');}
     if(scene==='game'&&sk&&sk.counter&&G&&G.boss&&G.boss.counterable&&!cd){ctx.strokeStyle=`rgba(127,211,255,${.6+.4*Math.sin(T*24)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
@@ -1012,7 +1027,7 @@ function bossUpdate(dt){
 /* ---- 스킬 사용 (인게임) ---- */
 function useSkill(k){
   const g=G;if(!g||g.paused||g.over||g.p.lock)return;const p=g.p;
-  const idx=loadoutOf(g.cls)[k];if(idx==null)return;const sk=skillsOf(g.cls)[idx];if(!sk||!sk.cdSec)return;
+  if(slotLocked(k))return;const idx=loadoutOf(g.cls)[k];if(idx==null)return;const sk=skillsOf(g.cls)[idx];if(!sk||!sk.cdSec)return;
   if(sk.fam){
     if(p.act&&p.act.k==='sdash'&&p.act.toggle&&p.act.slot===k){p.act.endNow=1;return;}   // 파괴 전차: 다시 누르면 멈춤
     if(p.combo&&p.combo.slot===k&&!p.act){const c=p.combo;p.combo=null;startWarlordSkill(sk,k,c.step);return;} // 콤보 이어치기
@@ -1088,21 +1103,21 @@ const fr=(p,a,b)=>Array.from({length:b-a+1},(_,i)=>p+(a+i));
 /* 무력화: 보스 체력바 아래 노란 게이지(100). 가득 차면 그로기(카운터 그로기의 1.25배) */
 const STG={'하':4,'중':8,'상':12,'최상':18};
 const WL_SKILLS=[
- {id:'bash',fam:'shield',icon:'ic_s4',name:'배쉬',type:'일반',cdSec:8,counter:true,stg:'상',opts:['가까운 적','이동 방향'],
+ {id:'bash',tier:'중',fam:'shield',icon:'ic_s4',name:'배쉬',type:'일반',cdSec:8,counter:true,stg:'상',opts:['가까운 적','이동 방향'],
   desc:'방패로 앞쪽 부채꼴 범위를 1회 타격해요. 카운터 스킬: 파란 빛을 두른 보스의 앞쪽에서 맞히면 패턴을 끊어요.'},
- {id:'sdash',fam:'shield',icon:'ic_s1',name:'방패 돌진',type:'일반',cdSec:4,stg:'하',opts:['가까운 적','이동 방향'],
+ {id:'sdash',tier:'약',fam:'shield',icon:'ic_s1',name:'방패 돌진',type:'일반',cdSec:4,stg:'하',opts:['가까운 적','이동 방향'],
   desc:'방패로 전방을 향해 0.5초간 빠르게 돌진해요. 돌진 중 20회 타격하고, 적에 막히면 멈춰서 계속 타격해요. 적이 쓰러지면 뚫고 지나가요.'},
- {id:'quake',fam:'shield',icon:'ic_s2',name:'방패 격동',type:'일반',cdSec:8,stg:'하',opts:['다수','방향'],
+ {id:'quake',tier:'중',fam:'shield',icon:'ic_s2',name:'방패 격동',type:'일반',cdSec:8,stg:'하',opts:['다수','방향'],
   desc:'범위 안의 적에게 점프해 착지하면서 주변 땅을 갈라 1회 타격해요. 살아남은 적은 살짝 밀려나요. 보스전에서는 보스 쪽으로 뛰어요. 다수: 적이 가장 많은 곳 / 방향: 그 방향 최대 사거리.'},
- {id:'bolt',fam:'shield',icon:'ic_s3',name:'가디언의 낙뢰',type:'일반',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
+ {id:'bolt',tier:'강',fam:'shield',icon:'ic_s3',name:'가디언의 낙뢰',type:'일반',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
   desc:'짧게 정신을 집중한 뒤 자신에게 낙뢰를 떨어뜨리고(1회), 네 갈래로 뻗어 나가게 해요(1회). 한 갈래는 대상 쪽을 향해요.'},
- {id:'upper',fam:'lance',icon:'ic_l4',name:'대쉬 어퍼 파이어',type:'일반',cdSec:8,counter:true,stg:'상',opts:['가까운 적','이동 방향'],
+ {id:'upper',tier:'중',fam:'lance',icon:'ic_l4',name:'대쉬 어퍼 파이어',type:'일반',cdSec:8,counter:true,stg:'상',opts:['가까운 적','이동 방향'],
   desc:'앞으로 짧게 돌진하며 랜스를 위로 쳐 올려 타격해요. 카운터 스킬: 파란 빛을 두른 보스의 앞쪽에서 맞히면 패턴을 끊어요.'},
- {id:'fire',fam:'lance',icon:'ic_l1',name:'파이어 불릿',type:'일반',cdSec:4,stg:'하',opts:['가까운 적','이동 방향'],
+ {id:'fire',tier:'약',fam:'lance',icon:'ic_l1',name:'파이어 불릿',type:'일반',cdSec:4,stg:'하',opts:['가까운 적','이동 방향'],
   desc:'랜스 끝에서 불꽃 탄환을 바로 폭발시켜 근거리의 적을 1회 판정으로 2번 타격해요.'},
- {id:'cspear',fam:'lance',icon:'ic_l3',name:'카운터 스피어',type:'일반',cdSec:8,stg:'중',opts:['가까운 적','이동 방향'],
+ {id:'cspear',tier:'중',fam:'lance',icon:'ic_l3',name:'카운터 스피어',type:'일반',cdSec:8,stg:'중',opts:['가까운 적','이동 방향'],
   desc:'방패를 들어 1초간 막아요(이동 불가). 스킬 중에는 받는 피해가 80% 줄어요. 막는 동안 공격을 받으면 공격한 적에게 짧게 돌진해 포격하고 뒤로 크게 밀려나요. 잡기는 막을 수 없어요.'},
- {id:'burst',fam:'lance',icon:'ic_l2',name:'버스트 캐넌',type:'홀딩',cdSec:12,stg:'상',opts:['가까운 적','이동 방향'],
+ {id:'burst',tier:'강',fam:'lance',icon:'ic_l2',name:'버스트 캐넌',type:'홀딩',cdSec:12,stg:'상',opts:['가까운 적','이동 방향'],
   desc:'키를 누르고 있으면 랜스에 차징해요. 0.4초마다 단계가 올라 최대 3회 포격하고, 1.2초 뒤 1초 더 버틸 수 있어요. 홀딩 중엔 못 움직이고 적을 자동 조준하며, 포격마다 뒤로 밀려나요. 무력화는 3단계일 때 상이에요.'},
 ];
 WL_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
