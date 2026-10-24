@@ -164,6 +164,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyK'&&scene==='lobby'&&!settingsOpen&&!lobby.fx){skillWin.open=!skillWin.open;invWin.open=false;skillWin.scroll=0;skillWin.sel=0;return;}
   if(e.code==='KeyI'&&scene==='lobby'&&!settingsOpen&&!lobby.fx){invWin.open=!invWin.open;skillWin.open=false;return;}
   if(e.code===INTERACT&&scene==='lobby'&&!settingsOpen&&!skillWin.open&&!invWin.open)pressE();
+  if(scene==='game'&&G&&G.choice){const n=e.code.startsWith('Digit')?+e.code.slice(5)-1:-1;if(n>=0)pickChoice(n);return;}
   if(scene==='game'&&G)for(const k of ['s1','s2','s3'])if(e.code===BIND[k])useSkill(k);
   if(e.code==='Digit9'&&bossDebug()&&scene==='game'&&G&&G.boss&&G.boss.hp>0){const B=G.boss;B.hp=Math.min(B.hp,B.max*BOSS_INFO.phases[Math.min(1,B.phase-1)]);} // 구현 단계: 다음 페이즈 체력으로
 });
@@ -499,7 +500,7 @@ function attack(manual){
   return true;
 }
 function gameUpdate(dt){
-  const g=G,p=g.p,c=g.cls;if(g.paused||g.over)return;
+  const g=G,p=g.p,c=g.cls;if(g.paused||g.over||g.choice)return;
   g.time+=dt;p.t+=dt;
   if(g.time>=GAME_LEN){g.over={win:true};return;}
   const a=p.lock||(p.act&&p.act.noMove)?{x:0,y:0,m:0}:axis();p.moving=a.m>.05;if(a.x>.2)p.face=1;else if(a.x<-.2)p.face=-1;
@@ -510,7 +511,7 @@ function gameUpdate(dt){
   updFollow(c,p,p.face,dt);
   if(c.drag&&p.moving&&Math.random()<dt*30){const d=dragTip(p,p.face),sp=Math.random()<.3;g.fx.push({k:'bit',x:d.x+(Math.random()-.5)*10,y:d.y-2,vx:(Math.random()-.5)*60,vy:-30-Math.random()*50,t:0,dur:sp?.25:.4,c:sp?'#ffb066':'#6d7280'});}
   const k=1-Math.pow(.002,dt);g.cam.x+=(p.x-g.cam.x)*k;g.cam.y+=(p.y-60-g.cam.y)*k;
-  if(g.mode==='train'){g.spawnAcc+=dt*(1.1+g.time/22);while(g.spawnAcc>=1&&g.en.length<320){g.spawnAcc-=1;spawnEnemy();}
+  if(g.mode==='train'){g.spawnAcc+=dt*(1.1+g.time/22)*.5;while(g.spawnAcc>=1&&g.en.length<320){g.spawnAcc-=1;spawnEnemy();}
     playerLockUpdate(dt);for(const d of g.decals)d.t+=dt;g.decals=g.decals.filter(d=>d.t<d.dur);}
   else bossUpdate(dt);if(g.over)return;g.shake=Math.max(0,g.shake-dt*40);
   // 적
@@ -545,7 +546,8 @@ function gameUpdate(dt){
   g.gems=g.gems.filter(s=>!s.got);
   if(Math.random()<dt*.8)g.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
   while(p.xp>=p.next){p.xp-=p.next;p.lvl++;p.next=Math.floor(8+p.lvl*4.5);p.atk*=1.06;p.max+=6;p.hp=Math.min(p.max,p.hp+p.max*.15);p.lvlFx=1.2;
-    if(g.mode==='train')for(const k in TRAIN_UNLOCK)if(p.lvl===TRAIN_UNLOCK[k])g.fx.push({k:'ctext',x:p.x,y:p.y-CH-90,t:0,dur:1.6,label:`${keyName(BIND[k])} 스킬칸 열림 (${TRAIN_TIER[k]})`,col:'#ffd27a',size:18});}
+    if(g.mode==='train')for(const k in TRAIN_UNLOCK)if(p.lvl===TRAIN_UNLOCK[k])(g.choiceQ=g.choiceQ||[]).push(k);}
+  if(g.mode==='train'&&!g.choice&&g.choiceQ&&g.choiceQ.length)openChoice(g.choiceQ.shift());
   for(const f of g.fx){f.t+=dt;if(f.vx!==undefined){f.x+=f.vx*dt;f.y+=f.vy*dt;f.vx*=.9;f.vy*=.9;}}
   g.fx=g.fx.filter(f=>f.t<f.dur);
   for(const n of g.nums){n.t+=dt;n.y-=40*dt;}g.nums=g.nums.filter(n=>n.t<.7);
@@ -638,7 +640,7 @@ function gameRender(){
   drawBossHud();
   if(g.mode==='train'){text('훈련장 1단계',VW/2,22,14,'#ffd27a','center');text(`처치 ${Math.min(g.kills,g.trainGoal)} / ${g.trainGoal}`,VW/2,44,16,'#e9e6dc','center');}
   text(`${mm}:${ss}`,VW-18,40,28,'#e9e6dc','right');text(`처치 ${g.kills}`,VW-18,70,12,'#9aa0b4','right');
-  drawSkillBar(g.cls);drawBurstBar();
+  drawSkillBar(g.cls);drawBurstBar();drawChoice();
   if(g.paused&&!g.over){ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,VW,VH);const w=280,h=176,x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);pixPanel(x,y,w,h);text('일시정지',VW/2,y+32,20,'#e8c06a','center');
     button(x+40,y+62,w-80,36,'계속하기',togglePause);button(x+40,y+110,w-80,36,'로비로 돌아가기',backToLobby);}
   if(g.over){ctx.fillStyle='rgba(5,6,10,.7)';ctx.fillRect(0,0,VW,VH);const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);
@@ -657,6 +659,7 @@ let skillDrag=null;
 const curMode=()=>scene==='game'&&G?G.mode:(skillWin.mode||'boss');
 const TRAIN_TIER={s1:'약',s2:'중',s3:'강'},TRAIN_UNLOCK={s1:5,s2:10,s3:15}; // 훈련장: Q=약, W=중, E=강 / 5·10·15레벨에 열림
 function loadoutOf(cls,m=curMode()){
+  if(m==='train'&&scene==='game'&&G)return G.trainLO||(G.trainLO={s1:null,s2:null,s3:null,id:null});
   cls.loadouts=cls.loadouts||{};
   if(!cls.loadouts[m]){let l=null;const key=m==='train'?'arknights.loadoutT1.':'arknights.loadout4.';try{l=JSON.parse(localStorage.getItem(key+cls.id)||'null');}catch(err){}
     let d={s1:null,s2:null,s3:null,id:null};
@@ -698,12 +701,12 @@ function drawSkillWin(){
   // 제목줄을 끌어서 이동: 기본 위치 + 끈 만큼, 화면 밖으로는 못 나가게
   const x=Math.round(Math.max(0,Math.min(VW-w,(VW-w)/2+skillWin.ox))),y=Math.round(Math.max(0,Math.min(VH-h,Math.max(12,(barTop-h)/2)+skillWin.oy)));
   skillWin.ox=x-(VW-w)/2;skillWin.oy=y-Math.max(12,(barTop-h)/2);
-  skillWin.headerRect={x:x+340,y,w:w-56-340,h:46}; // 제목줄 빈 곳을 끌어서 이동
+  skillWin.headerRect={x:x+180,y,w:w-56-180,h:46}; // 제목줄 빈 곳을 끌어서 이동
   if(inRect(skillWin.headerRect,mouse.x,mouse.y)||skillWin.move)cv.style.cursor='move',uiHover='move';
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('스킬',x+22,y+28,16,'#e8c06a');text(current.name,x+70,y+29,12,'#9aa0b4');
-  button(x+176,y+12,74,30,'보스',()=>{skillWin.mode='boss';},{active:skillWin.mode==='boss'});button(x+256,y+12,74,30,'훈련장',()=>{skillWin.mode='train';},{active:skillWin.mode==='train'});
-  if(w>640)text(skillWin.mode==='train'?'훈련장: Q 약 · W 중 · E 강, 5·10·15레벨에 열림':'목록의 스킬을 아래 스킬칸으로 끌어서 장착',x+w-56,y+29,12,'#6b7080','right');
+  skillWin.mode='boss'; // 훈련장 스킬은 판마다 레벨업 선택지로 고른다
+  if(w>640)text('보스전 스킬: 목록의 스킬을 아래 스킬칸으로 끌어서 장착',x+w-56,y+29,12,'#6b7080','right');
   button(x+w-44,y+12,30,30,'X',()=>{skillWin.open=false;});
   const top=y+54,bot=y+h-18,gap=14,lw=Math.round((w-22*2-gap)*.52),rw=w-44-gap-lw;
   // 목록
@@ -798,7 +801,7 @@ function drawSkillBar(cls){
     if(curMode()==='train'){const lk=slotLocked(q.k);if(q.k==='id'||lk){ctx.fillStyle='rgba(5,6,10,.72)';ctx.fillRect(q.x,q.y,q.size,q.size);
         ctx.fillStyle='#9aa0b4';ctx.fillRect(q.x+q.size/2-7,q.y+q.size/2-2,14,11);ctx.strokeStyle='#9aa0b4';ctx.lineWidth=3;ctx.beginPath();ctx.arc(q.x+q.size/2,q.y+q.size/2-3,5,Math.PI,0);ctx.stroke();
         if(q.k!=='id')text('Lv'+TRAIN_UNLOCK[q.k],q.x+q.size/2,q.y+q.size-9,12,'#e9e6dc','center');}
-      if(q.k!=='id')text(TRAIN_TIER[q.k],q.x+q.size-10,q.y+12,12,'#ffd27a','center');}
+    }
     const cid=CORES_ON&&eq[q.k];if(cid&&CORES[cid])drawCoreGem(q.x+q.size-8,q.y+q.size-9,7,CORES[cid].n,!(sk&&sk.id===CORES[cid].skill));
     const cd=scene==='game'&&G&&G.cds[q.k]||0;if(cd>0){const f=cd/(G.cdMax[q.k]||1);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(q.x+2,q.y+2+(q.size-4)*(1-f),q.size-4,(q.size-4)*f);text(Math.ceil(cd)+'',q.x+q.size/2,q.y+q.size/2,16,'#fff','center');}
     if(scene==='game'&&sk&&sk.counter&&G&&G.boss&&G.boss.counterable&&!cd){ctx.strokeStyle=`rgba(127,211,255,${.6+.4*Math.sin(T*24)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
@@ -1032,7 +1035,7 @@ function bossUpdate(dt){
 }
 /* ---- 스킬 사용 (인게임) ---- */
 function useSkill(k){
-  const g=G;if(!g||g.paused||g.over||g.p.lock)return;const p=g.p;
+  const g=G;if(!g||g.paused||g.over||g.choice||g.p.lock)return;const p=g.p;
   if(slotLocked(k))return;const idx=loadoutOf(g.cls)[k];if(idx==null)return;const sk=skillsOf(g.cls)[idx];if(!sk||!sk.cdSec)return;
   if(sk.fam){
     if(p.act&&p.act.k==='sdash'&&p.act.toggle&&p.act.slot===k){p.act.endNow=1;return;}   // 파괴 전차: 다시 누르면 멈춤
@@ -1419,6 +1422,25 @@ function drawInv(){
     if(on)button(rx+(rw-140)/2,ry+rh-48,140,34,`해제 (${keyName(BIND[on])})`,()=>unequipCore(current,on));
     else text(`아래 '${sk.name}' 스킬칸으로 끌어서 장착`,rx+rw/2,ry+rh-30,12,'#6b7080','center');}
   if(invWin.toast&&T-invWin.toast.t<2.6){ctx.globalAlpha=Math.min(1,(2.6-(T-invWin.toast.t))*2);text(invWin.toast.msg,x+w/2,y-14,14,invWin.toast.col,'center');ctx.globalAlpha=1;}
+}
+
+/* 훈련장 스킬 선택지: 5·10·15레벨에 해당 칸(약·중·강)의 스킬 중 하나를 고른다. 고르는 동안 게임 정지 */
+function openChoice(slot){const g=G,list=skillsOf(g.cls),tier=TRAIN_TIER[slot];
+  const opts=list.map((sk,i)=>i).filter(i=>list[i].tier===tier);if(!opts.length)return;
+  g.choice={slot,tier,opts,t:0};}
+function pickChoice(i){const g=G,c=g&&g.choice;if(!c||i==null||i>=c.opts.length)return;loadoutOf(g.cls)[c.slot]=c.opts[i];g.cds[c.slot]=0;
+  g.fx.push({k:'ctext',x:g.p.x,y:g.p.y-CH-90,t:0,dur:1.4,label:`${keyName(BIND[c.slot])} · ${skillsOf(g.cls)[c.opts[i]].name}`,col:'#ffd27a',size:18});g.choice=null;}
+function drawChoice(){const g=G,c=g&&g.choice;if(!c)return;c.t+=1/60;const list=skillsOf(g.cls);
+  ctx.fillStyle='rgba(5,6,10,.62)';ctx.fillRect(0,0,VW,VH);
+  const n=c.opts.length,cw=Math.min(200,(VW-48-(n-1)*14)/n),ch=272,tw=n*cw+(n-1)*14,x0=(VW-tw)/2,y0=Math.max(70,(VH-ch)/2-20);
+  text(`Lv ${g.p.lvl}  ·  ${keyName(BIND[c.slot])} 스킬 선택`,VW/2,y0-34,22,'#e8c06a','center');text(`'${c.tier}' 세기 스킬 중 하나를 골라요 · 클릭 또는 숫자키`,VW/2,y0-10,12,'#9aa0b4','center');
+  c.opts.forEach((idx,i)=>{const sk=list[idx],x=x0+i*(cw+14),y=y0,hov=inRect({x,y,w:cw,h:ch},mouse.x,mouse.y);
+    pixPanel(x,y,cw,ch);if(hov){ctx.strokeStyle='#e8c06a';ctx.lineWidth=3;ctx.strokeRect(x+1,y+1,cw-2,ch-2);uiHover=true;}
+    const isz=64;slotBox(x+(cw-isz)/2,y+18,isz);drawIcon(sk,x+(cw-isz)/2,y+18,isz);
+    text(sk.name,x+cw/2,y+102,14,sk.fam==='lance'?'#ff9a6a':'#9ad4ff','center');text(`재사용 ${sk.cd}${sk.counter?' · 카운터':''}`,x+cw/2,y+124,12,'#9aa0b4','center');
+    wrapText(sk.desc,x+12,y+150,cw-24,18,12,'#e9e6dc');
+    text(`${i+1}`,x+16,y+16,12,'#6b7080','center');
+    ui.push({x,y,w:cw,h:ch,fn(){pickChoice(i);}});});
 }
 
 /* ---------------- 공통 루프 ---------------- */
