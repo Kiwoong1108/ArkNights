@@ -66,7 +66,7 @@ let CUR_POSE=null;
 /* 데빌헌터 스탠스별 무기 위치: 들고 있는 총은 손, 나머지는 등 */
 const DH_WEPS={
   handgun:[{img:'shotgun',h:.33,r:50,ax:.5,ay:.5,x:-.06,y:-.56,back:1},{img:'rifle',h:.42,r:-50,ax:.5,ay:.5,x:-.06,y:-.56,back:1,fx:1},{img:'handgun',h:.32,r:0,ax:.85,ay:.72,x:.2,y:-.3,fx:1}],
-  shotgun:[{img:'rifle',h:.42,r:-50,ax:.5,ay:.5,x:-.06,y:-.56,back:1,fx:1},{img:'shotgun',h:.36,r:0,ax:.62,ay:.55,x:.2,y:-.3}],
+  shotgun:[{img:'rifle',h:.42,r:-50,ax:.5,ay:.5,x:-.06,y:-.56,back:1,fx:1},{img:'shotgun',h:.36,r:0,ax:.62,ay:.55,x:.2,y:-.3,fx:1}],
   rifle:[{img:'shotgun',h:.33,r:50,ax:.5,ay:.5,x:-.06,y:-.56,back:1},{img:'rifle',h:.46,r:0,ax:.62,ay:.55,x:.2,y:-.3,fx:1}]};
 /* 워로드 스킬 중 무기 동작: dx/dy는 캐릭터 키 비율, dr은 도(손 닿는 지점=무기 기준점 중심 회전). 앞쪽이 +x */
 function wepPose(p){
@@ -502,7 +502,9 @@ const basicDmg=()=>BASIC_DMG*G.p.atk/G.cls.atk;
 function attack(manual){
   const c=G.cls,p=G.p,bx=p.x,by=p.y-55;
   const melee=c.mode==='melee'||c.mode==='slam';
-  const tgt=nearestEnemy(bx,by,melee?c.range+20:700);if(!tgt&&!manual)return false;
+  const gun=c.id==='devilhunter'?(p.gun||'handgun'):null,GR={handgun:700,shotgun:340,rifle:875}; // 사거리: 샷건 짧게, 라이플 핸드건의 1.25배
+  const range=gun?GR[gun]:melee?c.range+20:700;
+  const tgt=nearestEnemy(bx,by,range);if(!tgt&&(!manual||gun==='shotgun'))return false; // 샷건은 사거리 안에 적이 없으면 안 쏨
   const fa=p.dirA!=null?p.dirA:(p.face>0?0:Math.PI);
   const ang=tgt?Math.atan2(tgt.y-by,tgt.x-bx):Math.atan2(Math.sin(fa)*YS,Math.cos(fa));if(tgt&&(!p.moving||Math.abs(axis().x)<.2))p.face=tgt.x>=bx?1:-1;
   if(melee){
@@ -512,6 +514,10 @@ function attack(manual){
     G.fx.push({k:c.mode==='slam'?'slam':'slash',x:bx,y:by,a:ang,range:c.range,arc:c.arc,t:0,dur:c.mode==='slam'?.35:.22,c:c.c1,c2:c.c2,dir:Math.random()<.5?1:-1});
   }else{
     const hx=p.x+p.face*.32*CH,hy=p.y-.4*CH;const a=tgt?Math.atan2(tgt.y-hy,tgt.x-hx):ang;
+    if(gun==='shotgun'){ // 전방 60도 부채꼴 5발, 다 맞으면 핸드건 기본 공격의 2배
+      for(let i=0;i<5;i++){const aa=a+(i-2)*(Math.PI/3)/4;G.pr.push({k:'shot',x:hx,y:hy,vx:Math.cos(aa)*c.speed,vy:Math.sin(aa)*c.speed,life:GR.shotgun/c.speed,pierce:0,hits:new Set(),r:10,dmg:basicDmg()*2/5,tgt,splash:0,c:'#9fd2ff',c2:c.c2,spin:0,age:0});}
+      p.kick=.15;return true;}
+    if(gun==='rifle'){G.pr.push({k:'shot',x:hx,y:hy,vx:Math.cos(a)*c.speed*1.2,vy:Math.sin(a)*c.speed*1.2,life:GR.rifle/(c.speed*1.2)+.05,pierce:0,hits:new Set(),r:12,big:1.2,dmg:basicDmg()*2.1,tgt,splash:0,c:'#d79bff',c2:c.c2,spin:0,age:0});p.kick=.2;return true;}
     const n=c.mode==='card'?3:1;
     for(let i=0;i<n;i++){const aa=a+(i-(n-1)/2)*.18;
       G.pr.push({k:c.mode,x:hx,y:hy,vx:Math.cos(aa)*c.speed,vy:Math.sin(aa)*c.speed,life:c.mode==='wave'?1.1:1.6,pierce:c.pierce,hits:new Set(),r:c.mode==='wave'?34:(c.mode==='shell'?14:10),dmg:basicDmg()*(n>1?.6:1),tgt,splash:c.splash||0,c:c.c1,c2:c.c2,spin:0,age:0});}
@@ -545,8 +551,9 @@ function gameUpdate(dt){
   if(g.mode==='train'&&g.kills>=g.trainGoal){g.over={win:true,train:true};if(CORES_ON)INV.boxes++;saveInv();return;}
   // 공격
   p.cd-=dt;if(p.cd<=0&&!p.lock&&!p.act){
-    if(g.mode==='train'){if(attack())p.cd=1/c.aspd;else p.cd=.05;}   // 훈련장: 자동 공격
-    else if(keys.has(BIND.atk)){attack(true);p.cd=1/1.8;}}        // 보스전: 기본 공격 키(기본 C), 초당 1.8회
+    const sm=c.id==='devilhunter'&&p.gun&&p.gun!=='handgun'?.5:1;  // 데빌헌터 샷건·라이플은 공격 속도 절반
+    if(g.mode==='train'){if(attack())p.cd=1/(c.aspd*sm);else p.cd=.05;}   // 훈련장: 자동 공격
+    else if(keys.has(BIND.atk)){if(attack(true))p.cd=1/(1.8*sm);else p.cd=.05;}}        // 보스전: 기본 공격 키(기본 C), 초당 1.8회
   // 투사체
   for(const q of g.pr){q.age+=dt;
     if(q.k==='orb'&&q.tgt){if(q.tgt.hp<=0)q.tgt=nearestEnemy(q.x,q.y,500);if(q.tgt){const a=Math.atan2(q.tgt.y-q.y,q.tgt.x-q.x),sp=Math.hypot(q.vx,q.vy);const cur=Math.atan2(q.vy,q.vx);let da=Math.atan2(Math.sin(a-cur),Math.cos(a-cur));const na=cur+Math.max(-6*dt,Math.min(6*dt,da));q.vx=Math.cos(na)*sp;q.vy=Math.sin(na)*sp;}}
@@ -590,7 +597,7 @@ function drawEnemy(e){
 function drawProj(q){
   ctx.save();ctx.translate(q.x,q.y);const a=Math.atan2(q.vy,q.vx);ctx.globalCompositeOperation='lighter';
   const glow=(r,col)=>{const g=ctx.createRadialGradient(0,0,1,0,0,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(-r,-r,r*2,r*2);};
-  if(q.k==='shot'){ctx.rotate(a);ctx.fillStyle=q.c;ctx.fillRect(-26,-2,30,4);ctx.fillStyle='#fff';ctx.fillRect(0,-3,8,6);}
+  if(q.k==='shot'){ctx.rotate(a);if(q.big)ctx.scale(q.big,q.big);ctx.fillStyle=q.c;ctx.fillRect(-26,-2,30,4);ctx.fillStyle='#fff';ctx.fillRect(0,-3,8,6);}
   else if(q.k==='arrow'){ctx.rotate(a);ctx.fillStyle='#d8c28c';ctx.fillRect(-34,-1.5,34,3);ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-2,-6);ctx.lineTo(-2,6);ctx.fill();ctx.fillStyle='#b8e0ff';ctx.fillRect(-36,-5,8,3);ctx.fillRect(-36,2,8,3);}
   else if(q.k==='shell'){glow(34,'rgba(255,120,50,.8)');ctx.rotate(a);ctx.fillStyle='#ffd27a';ctx.fillRect(-12,-7,22,14);ctx.fillStyle='#fff3c0';ctx.fillRect(4,-4,8,8);}
   else if(q.k==='orb'){glow(30,'rgba(120,210,255,.9)');ctx.fillStyle='#eaffff';ctx.fillRect(-5,-5,10,10);}
@@ -1548,9 +1555,9 @@ const DH_SKILLS=[
  {id:'r1',gun:'rifle',fam:'dh',icon:'ic_r1',name:'스파이럴 플레임',type:'일반',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
   desc:'불꽃 탄환을 쏴서 피해를 주고(600), 탄환이 지나간 직선 바닥에 불길을 남겨요(10 × 20회). 쏜 뒤 0.25초 경직이 있어요.'},
  {id:'r2',gun:'rifle',fam:'dh',icon:'ic_r2',name:'포커스 샷',type:'콤보',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
-  desc:'스코프로 조준해 4회까지 쏴요(각 200). 조준 중엔 움직일 수 없고, 움직이면 조준이 풀리며 재사용 대기시간의 80%가 적용돼요.'},
+  desc:'스코프로 조준해 4회까지 쏴요(각 200). 조준 중엔 움직일 수 없고, 시전 0.25초 뒤부터 움직이면 조준이 풀리며 재사용 대기시간의 80%가 적용돼요.'},
  {id:'r3',gun:'rifle',fam:'dh',icon:'ic_r3',name:'퍼펙트 샷',type:'홀딩',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
-  desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.75~1.25초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
+  desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.85~1.15초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
 ];
 DH_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
 const DH_SCALE=1.059; // 데빌헌터 스킬 전체 배율: 공격력 13 기준 스킬만으로 DPS 약 55(기본 공격 없이), 스킬 간 비율 유지
@@ -1631,7 +1638,7 @@ function dhUpdate(A_,dt){
     if(!A_.boom&&A_.t>=.6){A_.boom=1;const s=A_.shell;hitCircle(s.tx,s.ty,200,dmgOf(500),cast(sk,STG[sk.stg]),60);spr({frames:['fx_dh_boom'],x:s.tx,y:s.ty,h:40,sc:2.2,dur:.45});G.shake=Math.max(G.shake,12);crater(s.tx,s.ty,110);
       dhShotgun(p,A_.a,300,0,false,sk);}
   }else if(A_.k==='dh_focus'){ // 조준: 움직이면 취소(재사용 80%)
-    const ax=axis();if(ax.m>.2&&A_.shots<4){p.act=null;setCd(sk.id,sk.cdSec*.8);return;}
+    const ax=axis();if(A_.t>.25&&ax.m>.2&&A_.shots<4){p.act=null;setCd(sk.id,sk.cdSec*.8);return;}
     if(A_.tgt&&A_.tgt.hp>0){const f=footOf(A_.tgt);A_.tx=f.x;A_.ty=f.y;A_.a=gang(p.x,p.y,f.x,f.y);faceTo(A_.a);}
     A_.cool=Math.max(0,(A_.cool||0)-dt);A_.pop=Math.max(0,A_.pop-dt*5);if(!A_.first&&A_.t>=.3){A_.first=1;dhFocusShot(A_);}
     if(A_.endIn!=null){A_.endIn-=dt;if(A_.endIn<=0){dhEnd(A_);return;}}
@@ -1644,7 +1651,7 @@ function dhUpdate(A_,dt){
   }
   if(p.act===A_&&A_.t>=A_.dur){p.z=0;dhEnd(A_);}
 }
-function dhPerfectFire(A_){if(!A_.hold)return;A_.hold=false;A_.firedAt=A_.t;const p=G.p,sk=A_.sk,perfect=A_.t>=.75&&A_.t<=1.25;
+function dhPerfectFire(A_){if(!A_.hold)return;A_.hold=false;A_.firedAt=A_.t;const p=G.p,sk=A_.sk,perfect=A_.t>=.85&&A_.t<=1.15;
   const tip=armEnd(p.x,p.y,A_.a,90);hitLine(tip.x,tip.y,A_.a,900,120,dmgOf(perfect?800:400),cast(sk,STG[sk.stg]));
   spr({frames:['fx_dh_rbullet'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:900/290,sy:perfect?2.2:1.4,dur:.3});
   const e=armEnd(tip.x,tip.y,A_.a,500);spr({frames:['fx_dh_rburst'],x:e.x,y:e.y,h:55,sc:perfect?2:1.3,dur:.35});
@@ -1682,9 +1689,9 @@ function drawFocusDim(){const A_=G.p.act;if(!A_||A_.k!=='dh_focus')return;
   ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);text(`${4-A_.shots}`,sx+r+14,sy-r+10,16,'#e6a8ff','left');}
 /* 퍼펙트 샷 홀딩 바: 퍼펙트 존 표시 */
 function drawPerfectBar(){const A_=G.p.act;if(!A_||A_.k!=='dh_perfect'||!A_.hold)return;
-  const top=Math.min(...skillBarLayout().map(q=>q.y)),w=Math.min(260,VW-60),h=12,x=(VW-w)/2,y=top-34,k=Math.min(1,A_.t/1.5),inZ=A_.t>=.75&&A_.t<=1.25;
+  const top=Math.min(...skillBarLayout().map(q=>q.y)),w=Math.min(260,VW-60),h=12,x=(VW-w)/2,y=top-34,k=Math.min(1,A_.t/1.5),inZ=A_.t>=.85&&A_.t<=1.15;
   ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(x-3,y-3,w+6,h+6);ctx.fillStyle='#1c1028';ctx.fillRect(x,y,w,h);
-  ctx.fillStyle='rgba(230,168,255,.35)';ctx.fillRect(x+w*.5,y,w*(.5/1.5)*3/3*1,h);ctx.strokeStyle='#e6a8ff';ctx.lineWidth=2;ctx.strokeRect(x+w*.5,y-2,w/3,h+4);
+  const zx=x+w*.85/1.5,zw=w*.3/1.5;ctx.fillStyle='rgba(230,168,255,.35)';ctx.fillRect(zx,y,zw,h);ctx.strokeStyle='#e6a8ff';ctx.lineWidth=2;ctx.strokeRect(zx,y-2,zw,h+4);
   ctx.fillStyle=inZ?'#f2c9ff':'#9b6bd6';ctx.fillRect(x,y,w*k,h);ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(x,y,w*k,3);
   text(inZ?'PERFECT':'퍼펙트 존',x+w+12,y+h/2,12,inZ?'#f2c9ff':'#9b6bd6','left');}
 /* 스킬칸: 가운데 칸(W)은 현재 총, 아이덴티티 칸은 회색 총(스왑하면 뒤집힘) */
