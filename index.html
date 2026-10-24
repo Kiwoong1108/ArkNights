@@ -1512,21 +1512,21 @@ const GUN_NAME={handgun:'핸드건',shotgun:'샷건',rifle:'라이플'},GUN_ICON
 const DH_SKILLS=[
  {id:'h1',gun:'handgun',fam:'dh',icon:'ic_h1',name:'나선의 추적자',type:'일반',cdSec:4,stg:'하',multi:1,opts:['다수','방향'],
   desc:'핸드건을 하나 던져요. 던진 총이 1.75초 동안 빙글빙글 돌며 주변을 20회 사격해요(1타 13.1). 보스전에서는 보스에게 던져요.'},
- {id:'h2',gun:'handgun',fam:'dh',icon:'ic_h2',name:'사형 집행',type:'콤보',cdSec:4,stg:'하',counter:true,opts:['가까운 적','이동 방향'],
+ {id:'h2',gun:'handgun',fam:'dh',icon:'ic_h2',name:'사형 집행',type:'콤보',cdSec:4,stg:'중',counter:true,opts:['가까운 적','이동 방향'],
   desc:'앞으로 돌진해 적을 걷어차고(62.5, 카운터 가능) 원래 자리보다 살짝 뒤로 튀어나와요. 다시 누르면 걷어찬 적에게 양손 핸드건을 8회 난사해요(총 200).'},
  {id:'h3',gun:'handgun',fam:'dh',icon:'ic_h3',name:'이퀼리브리엄',type:'콤보',cdSec:4,stg:'하',opts:['이동 방향'],
   desc:'방향키 쪽으로 짧게 돌진하고 주변을 사격해요(50). 4회까지 이어서 쓸 수 있어요(총 200). 돌진 방향은 바꿀 수 없고, 2회째부터는 0.2초씩 이동이 멈춰요.'},
- {id:'s1',gun:'shotgun',fam:'dh',icon:'ic_s1dh',name:'종말의 전조',type:'콤보',cdSec:12,stg:'중',counter:true,multi:1,opts:['다수','방향'],
+ {id:'s1',gun:'shotgun',fam:'dh',icon:'ic_s1dh',name:'종말의 전조',type:'콤보',cdSec:12,stg:'상',counter:true,multi:1,opts:['다수','방향'],
   desc:'전방으로 샷건을 간결하게 쏴요(410). 다시 누르면 한 번 더 쏴요. 쏠 때마다 뒤로 약간 밀려나요. 카운터 가능.'},
- {id:'s2',gun:'shotgun',fam:'dh',icon:'ic_s2dh',name:'샷건의 지배자',type:'일반',cdSec:12,stg:'중',multi:1,opts:['다수','방향'],
+ {id:'s2',gun:'shotgun',fam:'dh',icon:'ic_s2dh',name:'샷건의 지배자',type:'일반',cdSec:12,stg:'상',multi:1,opts:['다수','방향'],
   desc:'샷건을 4회 난사하고(각 125) 마무리 사격을 1회 해요(300). 쏠 때마다 뒤로 약간 밀려나요.'},
- {id:'s3',gun:'shotgun',fam:'dh',icon:'ic_s3dh',name:'최후의 만찬',type:'일반',cdSec:12,stg:'상',multi:1,opts:['다수','방향'],
+ {id:'s3',gun:'shotgun',fam:'dh',icon:'ic_s3dh',name:'최후의 만찬',type:'일반',cdSec:12,stg:'중',multi:1,opts:['다수','방향'],
   desc:'뒤로 짧게 물러서며 폭발 탄환을 쏴요. 잠시 뒤 탄환이 터지며(500) 동시에 샷건을 1회 쏴요(300).'},
  {id:'r1',gun:'rifle',fam:'dh',icon:'ic_r1',name:'스파이럴 플레임',type:'일반',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
   desc:'불꽃 탄환을 쏴서 피해를 주고(600), 탄환이 지나간 직선 바닥에 불길을 남겨요(10 × 20회). 쏜 뒤 0.25초 경직이 있어요.'},
  {id:'r2',gun:'rifle',fam:'dh',icon:'ic_r2',name:'포커스 샷',type:'콤보',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
   desc:'스코프로 조준해 4회까지 쏴요(각 200). 조준 중엔 움직일 수 없고, 움직이면 조준이 풀리며 재사용 대기시간의 80%가 적용돼요.'},
- {id:'r3',gun:'rifle',fam:'dh',icon:'ic_r3',name:'퍼펙트 샷',type:'홀딩',cdSec:12,stg:'상',opts:['가까운 적','이동 방향'],
+ {id:'r3',gun:'rifle',fam:'dh',icon:'ic_r3',name:'퍼펙트 샷',type:'홀딩',cdSec:12,stg:'중',opts:['가까운 적','이동 방향'],
   desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.75~1.25초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
 ];
 DH_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
@@ -1547,14 +1547,14 @@ function dhStart(sk,step=0){
   const g=G,p=g.p,base={sk,dh:1,t:0,step};
   const tgt=r=>aimOf(sk,r);
   if(sk.id==='h1'){const t=tgt(380);faceTo(t.a);const d=Math.min(380,gd(p.x,p.y,t.x,t.y)||380),to=t.e&&t.e.boss?{x:t.x,y:t.y}:armEnd(p.x,p.y,t.a,d);
-    g.drones=g.drones||[];g.drones.push({x:p.x,y:p.y-60,sx:p.x,sy:p.y,tx:to.x,ty:to.y,t:0,fly:.25,dur:1.75,tick:0,hits:0,rot:0,C:cast(sk,STG['하'])});
+    g.drones=g.drones||[];g.drones.push({x:p.x,y:p.y-60,sx:p.x,sy:p.y,tx:to.x,ty:to.y,t:0,fly:.25,dur:1.75,tick:0,hits:0,rot:0,C:cast(sk,STG[sk.stg])});
     p.act=Object.assign(base,{k:'dh_throw',dur:.18,noMove:1});p.kick=.2;return;}
   if(sk.id==='h2'){const t=tgt(320);faceTo(t.a);
     if(step===0){const d=Math.min(320,Math.max(60,gd(p.x,p.y,t.x,t.y)-80));p.act=Object.assign(base,{k:'dh_kick',dur:.5,a:t.a,ox:p.x,oy:p.y,dist:d,noMove:1,tgt:t.e||null,combo:2});return 'defer';}
     const prev=p.lastKick;p.act=Object.assign(base,{k:'dh_exec',dur:.55,a:t.a,tgt:prev&&prev.hp>0?prev:(t.e||null),shots:0,noMove:1});return 'defer';}
   if(sk.id==='h3'){const ax=axis(),a=ax.m>.2?Math.atan2(ax.y/YS,ax.x):(p.dirA!=null?p.dirA:0);faceTo(a);
     p.act=Object.assign(base,{k:'dh_eq',dur:step>=1?.34:.14,a,noMove:1,combo:step<3?4:0});return 'defer';}
-  if(sk.id==='s1'){const t=tgt(360);faceTo(t.a);p.act=Object.assign(base,{k:'dh_doom',dur:.3,a:t.a,noMove:1,combo:step===0?2:0});dhShotgun(p,t.a,410,STG['중']/2,true,sk);return 'defer';}
+  if(sk.id==='s1'){const t=tgt(360);faceTo(t.a);p.act=Object.assign(base,{k:'dh_doom',dur:.3,a:t.a,noMove:1,combo:step===0?2:0});dhShotgun(p,t.a,410,STG[sk.stg]/2,true,sk);return 'defer';}
   if(sk.id==='s2'){const t=tgt(360);faceTo(t.a);p.act=Object.assign(base,{k:'dh_master',dur:1.1,a:t.a,shots:0,noMove:1});return;}
   if(sk.id==='s3'){const t=tgt(400);faceTo(t.a);const d=Math.min(400,gd(p.x,p.y,t.x,t.y)||400),to=t.e&&t.e.boss?{x:t.x,y:t.y}:armEnd(p.x,p.y,t.a,d);
     p.act=Object.assign(base,{k:'dh_supper',dur:.85,a:t.a,noMove:1,shell:{sx:p.x,sy:p.y,tx:to.x,ty:to.y}});p.kick=.25;return;}
@@ -1567,12 +1567,12 @@ function dhShotgun(p,a,v,stg,counter,sk){ // 샷건 부채꼴 사격
   const tip=armEnd(p.x,p.y,a,40);spr({frames:['fx_dh_cone'],x:tip.x,y:tip.y,h:55,a,ax:0,sx:1.7,sy:1.7,dur:.28});
   const m=armEnd(0,0,a+Math.PI,45);moveOn(p,m.x,m.y);p.kick=.25;G.shake=Math.max(G.shake,5);}
 function dhFlame(p,a,sk){
-  const tip=armEnd(p.x,p.y,a,90),len=800;hitLine(tip.x,tip.y,a,len,110,dmgOf(600),cast(sk,STG['중']));
+  const tip=armEnd(p.x,p.y,a,90),len=800;hitLine(tip.x,tip.y,a,len,110,dmgOf(600),cast(sk,STG[sk.stg]));
   spr({frames:['fx_dh_flame'],x:tip.x,y:tip.y,h:30,a,ax:0,sx:len/430,sy:1.6,dur:.6});p.kick=.3;G.shake=Math.max(G.shake,6);
   (G.flames=G.flames||[]).push({x:tip.x,y:tip.y,a,len,w:110,t:0,dur:2,tick:0,n:0,C:cast(sk,0)});}
 function dhFocusShot(A_){ // 조준 중 다시 누르면 1발
   const p=G.p;if(A_.shots>=4||A_.cool>0)return;A_.shots++;A_.cool=.18;A_.pop=1;const sk=A_.sk,r=G.boss?220:160;
-  const C=cast(sk,A_.shots===1?STG['중']:0);let hit=0;
+  const C=cast(sk,A_.shots===1?STG[sk.stg]:0);let hit=0;
   for(const e of foes()){const f=footOf(e);if(gd(A_.tx,A_.ty,f.x,f.y)<r+f.r*.5){skHit(e,dmgOf(200),C);hit++;}}
   spr({frames:['fx_dh_pop'],x:A_.tx,y:A_.ty,h:60,sc:2.2,dur:.3});p.kick=.3;G.shake=Math.max(G.shake,5);
   const tip=armEnd(p.x,p.y,A_.a,80);spr({frames:['fx_dh_rbullet'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:Math.max(.4,gd(p.x,p.y,A_.tx,A_.ty)/290),sy:.8,dur:.12});
@@ -1584,7 +1584,7 @@ function dhUpdate(A_,dt){
   const p=G.p,sk=A_.sk;A_.t+=dt;
   if(A_.k==='dh_kick'){ // 돌진 → 걷어차기 → 뒤로 튀어나옴
     if(A_.t<.14){const m=armEnd(0,0,A_.a,A_.dist/.14*dt);moveOn(p,m.x,m.y);}
-    else if(!A_.hit){A_.hit=1;const c=armEnd(p.x,p.y,A_.a,70);const C=cast(sk,STG['하'],{counter:true});const hit=hitCircle(c.x,c.y,90,dmgOf(62.5),C,40);
+    else if(!A_.hit){A_.hit=1;const c=armEnd(p.x,p.y,A_.a,70);const C=cast(sk,STG[sk.stg],{counter:true});const hit=hitCircle(c.x,c.y,90,dmgOf(62.5),C,40);
       p.lastKick=hit.find(e=>e.boss)||hit[0]||A_.tgt;spr({frames:['fx_dh_hit'],x:c.x,y:c.y,h:60,sc:1.4,dur:.22});G.shake=Math.max(G.shake,5);
       A_.bx=p.x;A_.by=p.y;A_.back=armEnd(A_.ox,A_.oy,A_.a+Math.PI,60);}
     else if(A_.t<.36){const k=(A_.t-.14)/.22,e=A_.back;p.x=A_.bx+(e.x-A_.bx)*k;p.y=A_.by+(e.y-A_.by)*k;p.z=Math.sin(Math.PI*k)*50;if(!walk(p.x,p.y))clampWalk(p);}
@@ -1596,14 +1596,14 @@ function dhUpdate(A_,dt){
       spr({frames:['fx_dh_trail'],x:tip.x,y:tip.y,h:58,a:A_.a,ax:0,sx:Math.max(.3,(t?gd(p.x,p.y,tf.x,tf.y):320)/330),sy:.5,dur:.1});if(t)spr({frames:['fx_dh_hit'],x:tf.x,y:tf.y,h:70,sc:.9,dur:.12});p.kick=.12;}
   }else if(A_.k==='dh_eq'){
     if(A_.t<.12){const m=armEnd(0,0,A_.a,180/.12*dt);moveOn(p,m.x,m.y);}
-    else if(!A_.hit){A_.hit=1;hitCircle(p.x,p.y,230,dmgOf(50),cast(sk,A_.step===0?STG['하']:0));spr({frames:['fx_dh_burst'],x:p.x,y:p.y,h:50,sc:.62,dur:.25});G.shake=Math.max(G.shake,3);p.kick=.15;}
+    else if(!A_.hit){A_.hit=1;hitCircle(p.x,p.y,230,dmgOf(50),cast(sk,A_.step===0?STG[sk.stg]:0));spr({frames:['fx_dh_burst'],x:p.x,y:p.y,h:50,sc:.62,dur:.25});G.shake=Math.max(G.shake,3);p.kick=.15;}
   }else if(A_.k==='dh_doom'){
   }else if(A_.k==='dh_master'){
-    const times=[.05,.2,.35,.5,.75];while(A_.shots<5&&A_.t>=times[A_.shots]){A_.shots++;if(A_.shots<5)dhShotgun(p,A_.a,125,A_.shots===1?STG['중']:0,false,sk);
+    const times=[.05,.2,.35,.5,.75];while(A_.shots<5&&A_.t>=times[A_.shots]){A_.shots++;if(A_.shots<5)dhShotgun(p,A_.a,125,A_.shots===1?STG[sk.stg]:0,false,sk);
       else{const C=cast(sk,0);hitSector(p.x,p.y,A_.a,380,Math.PI*.5,dmgOf(300),C);const tip=armEnd(p.x,p.y,A_.a,40);spr({frames:['fx_dh_cone2'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:2.4,sy:2.4,dur:.35});const m=armEnd(0,0,A_.a+Math.PI,70);moveOn(p,m.x,m.y);p.kick=.35;G.shake=Math.max(G.shake,9);}}
   }else if(A_.k==='dh_supper'){
     if(A_.t<.15){const m=armEnd(0,0,A_.a+Math.PI,110/.15*dt);moveOn(p,m.x,m.y);}
-    if(!A_.boom&&A_.t>=.6){A_.boom=1;const s=A_.shell;hitCircle(s.tx,s.ty,200,dmgOf(500),cast(sk,STG['상']),60);spr({frames:['fx_dh_boom'],x:s.tx,y:s.ty,h:40,sc:2.2,dur:.45});G.shake=Math.max(G.shake,12);crater(s.tx,s.ty,110);
+    if(!A_.boom&&A_.t>=.6){A_.boom=1;const s=A_.shell;hitCircle(s.tx,s.ty,200,dmgOf(500),cast(sk,STG[sk.stg]),60);spr({frames:['fx_dh_boom'],x:s.tx,y:s.ty,h:40,sc:2.2,dur:.45});G.shake=Math.max(G.shake,12);crater(s.tx,s.ty,110);
       dhShotgun(p,A_.a,300,0,false,sk);}
   }else if(A_.k==='dh_focus'){ // 조준: 움직이면 취소(재사용 80%)
     const ax=axis();if(ax.m>.2&&A_.shots<4){p.act=null;setCd(sk.id,sk.cdSec*.8);return;}
@@ -1620,7 +1620,7 @@ function dhUpdate(A_,dt){
   if(p.act===A_&&A_.t>=A_.dur){p.z=0;dhEnd(A_);}
 }
 function dhPerfectFire(A_){if(!A_.hold)return;A_.hold=false;A_.firedAt=A_.t;const p=G.p,sk=A_.sk,perfect=A_.t>=.75&&A_.t<=1.25;
-  const tip=armEnd(p.x,p.y,A_.a,90);hitLine(tip.x,tip.y,A_.a,900,120,dmgOf(perfect?800:400),cast(sk,perfect?STG['상']:STG['중']));
+  const tip=armEnd(p.x,p.y,A_.a,90);hitLine(tip.x,tip.y,A_.a,900,120,dmgOf(perfect?800:400),cast(sk,STG[sk.stg]));
   spr({frames:['fx_dh_rbullet'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:900/290,sy:perfect?2.2:1.4,dur:.3});
   const e=armEnd(tip.x,tip.y,A_.a,500);spr({frames:['fx_dh_rburst'],x:e.x,y:e.y,h:55,sc:perfect?2:1.3,dur:.35});
   if(perfect)G.fx.push({k:'ctext',x:p.x,y:p.y-CH-70,t:0,dur:.9,label:'PERFECT',col:'#e6a8ff',size:20});
