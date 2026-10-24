@@ -456,7 +456,7 @@ function startGame(mode='boss'){
   G={cls:c,p:{x:0,y:0,face:1,moving:false,t:0,hp:c.hp,max:c.hp,atk:c.atk,lvl:1,xp:0,next:8,cd:.5,inv:0,hurt:0,lvlFx:0},
      cam:{x:0,y:-60},en:[],pr:[],gems:[],fx:[],nums:[],time:0,kills:0,spawnAcc:0,paused:false,over:null,
      boss:null,tele:[],waves:[],decals:[],shake:0,broken:SECTORS.map(()=>false),falling:[],cds:{},cdMax:{},sky:null};
-  G.mode=mode;G.fields=[];G.soul=0;G.trainGoal=100;
+  G.mode=mode;G.fields=[];G.soul=0;G.trainGoal=500;
   if(mode==='boss'){G.boss=makeBoss(0,-200);G.p.y=230;}
   for(let i=0;i<24;i++)G.gems.push(Object.assign(randWalk(),{v:1,mag:false}));
 }
