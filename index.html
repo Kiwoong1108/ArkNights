@@ -1553,7 +1553,7 @@ const DH_SKILLS=[
   desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.75~1.25초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
 ];
 DH_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
-const DH_SCALE=0.955; // 데빌헌터 스킬 전체 배율(공격력 13 기준 총 DPS 약 55에 맞춤, 스킬 간 비율 유지)
+const DH_SCALE=1.059; // 데빌헌터 스킬 전체 배율: 기본 공격 없이 스킬만으로 DPS 약 55(공격력 13), 스킬 간 비율 유지
 const dmgOf=v=>v*DH_SCALE/100; // skHit에 넘길 배수(공격력 100 기준 설계값 v)
 /* 장착: 총마다 Q·E 두 칸 */
 let DH_LO=null;
