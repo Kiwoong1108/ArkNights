@@ -284,7 +284,7 @@ const lobby={p:{x:SPAWN.x,y:SPAWN.y,face:1,moving:false,t:0},cam:{x:SPAWN.x,y:SP
 const ringPos=k=>{const a=Math.PI/2+k*Math.PI*2/12;return {x:PLAZA.x+Math.cos(a)*PLAZA.rx*.74,y:PLAZA.y+Math.sin(a)*PLAZA.ry*.74};};
 const peds=CLASSES.map((c,i)=>Object.assign({cls:c,face:1,t:Math.random()*3},ringPos(i+1)));
 const portal={x:PLAZA.x-175,y:PLAZA.y+24,mode:'boss',label:'보스전'}; // 가운데 단상 왼쪽
-const trainPortal={x:PLAZA.x+175,y:PLAZA.y+24,mode:'train',label:'훈련장',train:1}; // 오른쪽: 훈련장(일반 몬스터)
+const trainPortal={x:PLAZA.x+175,y:PLAZA.y+24,mode:'train',label:'카오스 던전',train:1}; // 오른쪽: 훈련장(일반 몬스터)
 const signObj=ringPos(0);
 function interactables(){
   const L=[];for(const p of peds)L.push({kind:'ped',obj:p,x:p.x,y:p.y,headY:p.y-14-CH-34});
@@ -423,7 +423,7 @@ function lobbyRender(){
   text('현재 캐릭터',30,34,12,'#9aa0b4');text(current.name,30,56,20,'#e8c06a');text(current.wep,126,57,12,'#c9c9d2');
   if(L.sign){const w=Math.min(460,VW-32),h=216,x=(VW-w)/2,y=VH-h-24;pixPanel(x,y,w,h);
     text('조작 안내',x+20,y+26,16,'#e8c06a');
-    const rows=[[OPT.wasd?'WASD / 방향키':'방향키','이동'],['I','인벤토리'],['G','캐릭터 선택 · 포탈 입장'],['K','스킬창'],[`보스전 ${keyName(BIND.atk)}`,'기본 공격 (훈련장은 자동)'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
+    const rows=[[OPT.wasd?'WASD / 방향키':'방향키','이동'],['I','인벤토리'],['G','캐릭터 선택 · 포탈 입장'],['K','스킬창'],[`보스전 ${keyName(BIND.atk)}`,'기본 공격 (카오스 던전은 자동)'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
   if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
   if(skillWin.open)drawSkillWin();
@@ -638,16 +638,29 @@ function gameRender(){
   // 우상단: 시간 + 처치
   const tl=Math.max(0,GAME_LEN-g.time),mm=String(Math.floor(g.time/60)).padStart(2,'0'),ss=String(Math.floor(g.time%60)).padStart(2,'0');
   drawBossHud();
-  if(g.mode==='train'){text('훈련장 1단계',VW/2,22,14,'#ffd27a','center');text(`처치 ${Math.min(g.kills,g.trainGoal)} / ${g.trainGoal}`,VW/2,44,16,'#e9e6dc','center');}
+  if(g.mode==='train'){text('카오스 던전 1단계',VW/2,22,14,'#ffd27a','center');text(`처치 ${Math.min(g.kills,g.trainGoal)} / ${g.trainGoal}`,VW/2,44,16,'#e9e6dc','center');}
   text(`${mm}:${ss}`,VW-18,40,28,'#e9e6dc','right');text(`처치 ${g.kills}`,VW-18,70,12,'#9aa0b4','right');
   drawSkillBar(g.cls);drawBurstBar();drawChoice();
   if(g.paused&&!g.over){ctx.fillStyle='rgba(5,6,10,.6)';ctx.fillRect(0,0,VW,VH);const w=280,h=176,x=Math.round((VW-w)/2),y=Math.round((VH-h)/2);pixPanel(x,y,w,h);text('일시정지',VW/2,y+32,20,'#e8c06a','center');
     button(x+40,y+62,w-80,36,'계속하기',togglePause);button(x+40,y+110,w-80,36,'로비로 돌아가기',backToLobby);}
-  if(g.over){ctx.fillStyle='rgba(5,6,10,.7)';ctx.fillRect(0,0,VW,VH);const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);
-    text(g.over.train?'훈련장 1단계 클리어':g.over.boss?'보스 처치':g.over.win?'생존 성공':g.over.fall?'낙사':'쓰러졌습니다',VW/2,y+38,24,g.over.win?'#e8c06a':'#e9e6dc','center');
+  if(g.over){g.overT=(g.overT||0)+1/60;const ot=g.overT,slam=!!g.over.win,D=.2; // 클리어: 크게 → 쿵! 하고 찍힘
+    const k=slam?Math.min(1,ot/D):1,sc=slam?(ot<D?3.2-2.2*k*k:1+.05*Math.exp(-(ot-D)*14)*Math.cos((ot-D)*40)):1;
+    if(slam&&ot>=D&&!g.slammed){g.slammed=1;g.dust=Array.from({length:46},(_,i)=>{const a=i/46*Math.PI*2;return {a,s:200+Math.random()*320,r:3+Math.random()*6};});}
+    const sh=slam&&ot>=D?Math.max(0,1-(ot-D)/.35)*14:0,sx=(Math.random()-.5)*sh,sy=(Math.random()-.5)*sh;
+    ctx.fillStyle=`rgba(5,6,10,${Math.min(.7,ot*4)})`;ctx.fillRect(0,0,VW,VH);
+    const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;
+    ctx.save();ctx.translate(VW/2+sx,VH/2+sy);ctx.scale(sc,sc);ctx.translate(-VW/2,-VH/2);ctx.globalAlpha=slam?Math.min(1,.3+k):1;
+    if(slam&&ot<D){ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(x+18,y+26,w,h);} // 내려오는 그림자
+    pixPanel(x,y,w,h);
+    text(g.over.train?'카오스 던전 1단계 클리어':g.over.boss?'보스 처치':g.over.win?'생존 성공':g.over.fall?'낙사':'쓰러졌습니다',VW/2,y+38,24,g.over.win?'#e8c06a':'#e9e6dc','center');
     if(g.mode==='train'){text(g.over.train&&CORES_ON?'보상: 랜덤 스킬 코어 상자 ×1':`처치  ${Math.min(g.kills,g.trainGoal)} / ${g.trainGoal}`,VW/2,y+78,12,g.over.train?'#c49bff':'#e9e6dc','center');text(`영혼조각 +${g.soul}   ·   I키 인벤토리에서 확인`,VW/2,y+102,12,'#e9e6dc','center');}
     else{text(`생존 시간  ${mm}:${ss}`,VW/2,y+82,12,'#e9e6dc','center');text(`처치  ${g.kills}   ·   레벨  ${p.lvl}`,VW/2,y+106,12,'#e9e6dc','center');}
-    button(x+(w-180)/2,y+138,180,38,'로비로 돌아가기',backToLobby);}
+    if(!slam||ot>=D)button(x+(w-180)/2,y+138,180,38,'로비로 돌아가기',backToLobby);
+    ctx.restore();
+    if(slam&&ot>=D){const t2=ot-D,cx=VW/2,cy=VH/2;
+      if(t2<.18){ctx.fillStyle=`rgba(255,240,200,${.5*(1-t2/.18)})`;ctx.fillRect(0,0,VW,VH);} // 번쩍
+      ctx.strokeStyle=`rgba(255,220,140,${Math.max(0,1-t2/.5)})`;ctx.lineWidth=6*(1-Math.min(1,t2/.5))+1;ctx.strokeRect(x-t2*260,y-t2*160,w+t2*520,h+t2*320); // 충격 테두리
+      for(const d of g.dust||[]){const r=Math.min(t2,.6),px=cx+Math.cos(d.a)*(w*.55+d.s*r),py=cy+Math.sin(d.a)*(h*.6+d.s*r*.6)+t2*t2*120;ctx.fillStyle=`rgba(200,180,150,${Math.max(0,1-t2/.7)})`;ctx.fillRect(px,py,d.r,d.r);}}}
   ePressT=Math.max(0,ePressT-1/60);
 }
 
@@ -670,7 +683,7 @@ function loadoutOf(cls,m=curMode()){
   return cls.loadouts[m];
 }
 function saveLoadout(cls,m=curMode()){const key=m==='train'?'arknights.loadoutT1.':'arknights.loadout4.';try{localStorage.setItem(key+cls.id,JSON.stringify(loadoutOf(cls,m)));}catch(err){}}
-function slotAccepts(k,sk){if(!sk)return false;if(curMode()==='train'){if(k==='id')return false;return !sk.tier||sk.tier===TRAIN_TIER[k];}return (k==='id')===(sk.type==='아이덴티티');}
+function slotAccepts(k,sk){if(!sk)return false;if(curMode()==='train'){if(k==='id')return false;return !sk.tier||tierOf(sk)===TRAIN_TIER[k];}return (k==='id')===(sk.type==='아이덴티티');}
 const slotLocked=k=>scene==='game'&&G&&G.mode==='train'&&(k==='id'||G.p.lvl<(TRAIN_UNLOCK[k]||0));
 function equip(cls,k,idx,from){
   const L=loadoutOf(cls),prev=L[k];
@@ -1042,9 +1055,9 @@ function useSkill(k){
     if(p.combo&&p.combo.slot===k&&!p.act){const c=p.combo;p.combo=null;startWarlordSkill(sk,k,c.step);return;} // 콤보 이어치기
     if(p.act||(g.cds[k]||0)>0)return;
     if(p.combo)finishCombo();
-    const r=startWarlordSkill(sk,k,0);if(!r)setCd(k,sk.cdSec);return;}
+    const r=startWarlordSkill(sk,k,0);if(!r)setCd(k,cdOf(sk));return;}
   if(p.act||(g.cds[k]||0)>0)return;
-  setCd(k,sk.cdSec);
+  setCd(k,cdOf(sk));
   // 임시 카운터(워로드 외): 보스 앞쪽에서 써야 성공
   const B=g.boss;g.fx.push({k:'cring',x:p.x,y:p.y,t:0,dur:.4});
   if(B&&B.hp>0&&gd(p.x,p.y,B.fx,B.fy)<520){hurtEnemy(B,p.atk*2*SKILL_DMG);if(B.counterable&&bossFront(B,p))bossCounter(B);else addStagger(B,STG['중']);}
@@ -1130,6 +1143,12 @@ const WL_SKILLS=[
   desc:'키를 누르고 있으면 랜스에 차징해요. 0.4초마다 단계가 올라 최대 3회 포격하고, 1.2초 뒤 1초 더 버틸 수 있어요. 홀딩 중엔 못 움직이고 적을 자동 조준하며, 포격마다 뒤로 밀려나요. 무력화는 3단계일 때 상이에요.'},
 ];
 WL_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
+/* 카오스 던전(훈련장)에서만 세기가 바뀌는 스킬. 쿨타임은 세기를 따른다(약 4 · 중 8 · 강 12초) */
+const DUNGEON_TIER={bash:'약',upper:'약',cspear:'약',sdash:'중',fire:'중'};
+const TIER_CD={'약':4,'중':8,'강':12};
+const inDungeon=()=>scene==='game'&&G&&G.mode==='train';
+const tierOf=sk=>(inDungeon()&&DUNGEON_TIER[sk.id])||sk.tier;
+const cdOf=sk=>inDungeon()&&sk.tier?TIER_CD[tierOf(sk)]:sk.cdSec;
 /* 스킬 코어: 스킬칸 하나에 1개. 그 칸에 해당 스킬이 있을 때만 효과
    CORES_ON=false: 구현 예정 단계로 숨김 (효과·장착·코어 상자 보상 모두 꺼짐, 코드는 유지) */
 const CORES_ON=false;
@@ -1218,7 +1237,7 @@ function startWarlordSkill(sk,slot,step=0){
     p.act=Object.assign(base,{k:'upper',dur:core===1?.75:.45,a:t.a,hit:false,combo:core===2});return core===2?'defer':undefined;}
 }
 function doBash(A_){const p=G.p,sk=A_.sk,mul=A_.core?2:1,stg=A_.core===1?STG['최상']:A_.core===2?STG['상']/2:STG['상'];
-  hitSector(p.x,p.y,A_.a,230,Math.PI*2/3,7*mul*(A_.core===2?.5:1),cast(sk,stg));G.shake=Math.max(G.shake,4);bashFx(p,A_.a,230);}
+  const br=inDungeon()?290:230;hitSector(p.x,p.y,A_.a,br,Math.PI*2/3,7*mul*(A_.core===2?.5:1),cast(sk,stg));G.shake=Math.max(G.shake,4);bashFx(p,A_.a,br);}
 function doFire(A_,second){const p=G.p,sk=A_.sk,tip=tipOf(p,A_.a,170),mul=second?.75:1;
   const C=cast(sk,second?0:STG['하']);const hit=hitCircle(tip.x,tip.y,150,1.75*mul,C);
   setTimeout(()=>{if(G&&G.p===p)for(const e of hit)if(e.hp>0)skHit(e,1.75*mul,cast(sk,0));},110);
@@ -1232,11 +1251,11 @@ function counterSpear(src){ // 막기 성공 → 공격한 쪽으로 짧게 돌�
 function endAct(A_){const p=G.p;if(p.act===A_)p.act=null;
   if(A_.combo){p.combo={slot:A_.slot,sk:A_.sk,step:1,until:G.time+.9};return;}
   if(A_.k==='sdash'&&A_.core===2)sdashFinisher(A_);
-  if(A_.k==='sdash'&&A_.toggle)setCd(A_.slot,A_.sk.cdSec);
-  if((A_.k==='bash'&&A_.core===2)||(A_.k==='quake'&&A_.core===2)||A_.k==='ucannon')setCd(A_.slot,A_.sk.cdSec);
-  if(A_.k==='upper'&&A_.core===2)setCd(A_.slot,A_.sk.cdSec);
+  if(A_.k==='sdash'&&A_.toggle)setCd(A_.slot,cdOf(A_.sk));
+  if((A_.k==='bash'&&A_.core===2)||(A_.k==='quake'&&A_.core===2)||A_.k==='ucannon')setCd(A_.slot,cdOf(A_.sk));
+  if(A_.k==='upper'&&A_.core===2)setCd(A_.slot,cdOf(A_.sk));
 }
-function finishCombo(){const p=G.p,c=p.combo;if(!c)return;p.combo=null;setCd(c.slot,c.sk.cdSec);}
+function finishCombo(){const p=G.p,c=p.combo;if(!c)return;p.combo=null;setCd(c.slot,cdOf(c.sk));}
 function sdashFinisher(A_){const p=G.p; // 돌진 총량(3.5배)만큼
   hitSector(p.x,p.y,A_.a,230,Math.PI*2/3,3.5,cast(A_.sk,0));G.shake=Math.max(G.shake,5);bashFx(p,A_.a,230);p.slam=.3;}
 /* 지속 효과: 전류 지대, 몹 감전, 콤보 시간 */
@@ -1249,7 +1268,7 @@ function wlTick(dt){const g=G,p=g.p;g.fields=g.fields||[];
 }
 function wlUpdate(dt){
   const g=G,p=g.p;wlTick(dt);const A_=p.act;if(!A_)return;
-  if(p.lock){if(A_.k!=='cspear'||p.lock.k!=='stagger'){p.act=null;if(A_.slot&&(A_.toggle||A_.k==='burst'||A_.combo))setCd(A_.slot,A_.sk.cdSec);}return;}
+  if(p.lock){if(A_.k!=='cspear'||p.lock.k!=='stagger'){p.act=null;if(A_.slot&&(A_.toggle||A_.k==='burst'||A_.combo))setCd(A_.slot,cdOf(A_.sk));}return;}
   A_.t+=dt;const sk=A_.sk;
   if(A_.k==='bash'&&A_.step===0){ // 추가 타격 1타: 앞으로 전진하며 방패 내밀기
     if(A_.t<.13){const m=armEnd(0,0,A_.a,1000*dt);moveOn(p,m.x,m.y);}
@@ -1326,7 +1345,7 @@ function wlUpdate(dt){
 function releaseBurst(){const A_=G.p.act;if(!A_||A_.k!=='burst'||!A_.hold)return;A_.hold=false;
   A_.max=A_.core?A_.stage+1:Math.max(1,A_.stage);A_.fireT=0;A_.a0=A_.a;
   A_.stgPer=STG['상']*(A_.stage/3)/A_.max; // 3단계면 상, 아니면 비율만큼
-  setCd(A_.slot,A_.sk.cdSec);}
+  setCd(A_.slot,cdOf(A_.sk));}
 function shockRingBlue(x,y,r){G.fx.push({k:'bring',x,y,r,t:0,dur:.45,blue:1});}
 /* 플레이어에 붙는 스킬 연출 (몸 주위 빛) */
 function drawWlAura(){
@@ -1394,12 +1413,12 @@ function drawInv(){
   if(invWin.tab==='soul'){const cx=x+w/2,cy=(top+bot)/2-10;
     ctx.save();ctx.globalCompositeOperation='lighter';const g=ctx.createRadialGradient(cx,cy-30,4,cx,cy-30,80);g.addColorStop(0,'rgba(120,200,255,.6)');g.addColorStop(1,'rgba(120,200,255,0)');ctx.fillStyle=g;ctx.fillRect(cx-80,cy-110,160,160);ctx.restore();
     ctx.fillStyle='#7fd3ff';ctx.beginPath();ctx.moveTo(cx,cy-70);ctx.lineTo(cx+26,cy-30);ctx.lineTo(cx,cy+10);ctx.lineTo(cx-26,cy-30);ctx.closePath();ctx.fill();ctx.fillStyle='#e8f8ff';ctx.fillRect(cx-6,cy-52,8,14);
-    text(`${INV.soul}`,cx,cy+44,30,'#e9e6dc','center');text('영혼조각 · 기본 재화',cx,cy+78,12,'#9aa0b4','center');text('훈련장에서 경험치 조각 1개당 1개씩 모여요',cx,cy+100,12,'#6b7080','center');
+    text(`${INV.soul}`,cx,cy+44,30,'#e9e6dc','center');text('영혼조각 · 기본 재화',cx,cy+78,12,'#9aa0b4','center');text('카오스 던전에서 경험치 조각 1개당 1개씩 모여요',cx,cy+100,12,'#6b7080','center');
     return;}
   // 아이템 칸
   const items=[];if(CORES_ON){if(INV.boxes>0)items.push('box');for(const id in CORES)if(INV.cores[id])items.push('core:'+id);}
   const gw=Math.round((w-44)*.56),ts=64,gap=10,cols=Math.max(1,Math.floor((gw+gap)/(ts+gap)));
-  if(!items.length){text('아직 아이템이 없어요',x+22+gw/2,top+40,12,'#6b7080','center');if(CORES_ON)text('훈련장 1단계를 클리어하면 코어 상자를 받아요',x+22+gw/2,top+62,12,'#6b7080','center');}
+  if(!items.length){text('아직 아이템이 없어요',x+22+gw/2,top+40,12,'#6b7080','center');if(CORES_ON)text('카오스 던전 1단계를 클리어하면 코어 상자를 받아요',x+22+gw/2,top+62,12,'#6b7080','center');}
   const eq=eqOf(current);
   items.forEach((it,i)=>{const tx=x+22+(i%cols)*(ts+gap),ty=top+Math.floor(i/cols)*(ts+gap+14),sel=invWin.sel===it;
     if(it==='box'){slotBox(tx,ty,ts);drawChest(tx+6,ty+6,ts-12);text('×'+INV.boxes,tx+ts-4,ty+ts-8,12,'#fff','right');}
@@ -1426,7 +1445,7 @@ function drawInv(){
 
 /* 훈련장 스킬 선택지: 5·10·15레벨에 해당 칸(약·중·강)의 스킬 중 하나를 고른다. 고르는 동안 게임 정지 */
 function openChoice(slot){const g=G,list=skillsOf(g.cls),tier=TRAIN_TIER[slot];
-  const opts=list.map((sk,i)=>i).filter(i=>list[i].tier===tier);if(!opts.length)return;
+  const opts=list.map((sk,i)=>i).filter(i=>tierOf(list[i])===tier);if(!opts.length)return;
   g.choice={slot,tier,opts,t:0};}
 function pickChoice(i){const g=G,c=g&&g.choice;if(!c||i==null||i>=c.opts.length)return;loadoutOf(g.cls)[c.slot]=c.opts[i];g.cds[c.slot]=0;
   g.fx.push({k:'ctext',x:g.p.x,y:g.p.y-CH-90,t:0,dur:1.4,label:`${keyName(BIND[c.slot])} · ${skillsOf(g.cls)[c.opts[i]].name}`,col:'#ffd27a',size:18});g.choice=null;}
@@ -1437,7 +1456,7 @@ function drawChoice(){const g=G,c=g&&g.choice;if(!c)return;c.t+=1/60;const list=
   c.opts.forEach((idx,i)=>{const sk=list[idx],x=x0+i*(cw+14),y=y0,hov=inRect({x,y,w:cw,h:ch},mouse.x,mouse.y);
     pixPanel(x,y,cw,ch);if(hov){ctx.strokeStyle='#e8c06a';ctx.lineWidth=3;ctx.strokeRect(x+1,y+1,cw-2,ch-2);uiHover=true;}
     const isz=64;slotBox(x+(cw-isz)/2,y+18,isz);drawIcon(sk,x+(cw-isz)/2,y+18,isz);
-    text(sk.name,x+cw/2,y+102,14,sk.fam==='lance'?'#ff9a6a':'#9ad4ff','center');text(`재사용 ${sk.cd}${sk.counter?' · 카운터':''}`,x+cw/2,y+124,12,'#9aa0b4','center');
+    text(sk.name,x+cw/2,y+102,14,sk.fam==='lance'?'#ff9a6a':'#9ad4ff','center');text(`재사용 ${cdOf(sk)}초${sk.counter?' · 카운터':''}`,x+cw/2,y+124,12,'#9aa0b4','center');
     wrapText(sk.desc,x+12,y+150,cw-24,18,12,'#e9e6dc');
     text(`${i+1}`,x+16,y+16,12,'#6b7080','center');
     ui.push({x,y,w:cw,h:ch,fn(){pickChoice(i);}});});
