@@ -502,7 +502,7 @@ const basicDmg=()=>BASIC_DMG*G.p.atk/G.cls.atk;
 function attack(manual){
   const c=G.cls,p=G.p,bx=p.x,by=p.y-55;
   const melee=c.mode==='melee'||c.mode==='slam';
-  const gun=c.id==='devilhunter'?(p.gun||'handgun'):null,GR={handgun:600,shotgun:340,rifle:750}; // 사거리: 샷건 짧게, 라이플 핸드건의 1.25배
+  const gun=c.id==='devilhunter'?(p.gun||'handgun'):null,GR={handgun:600,shotgun:340,rifle:875}; // 사거리: 샷건 짧게, 라이플 핸드건의 1.25배
   const range=gun?GR[gun]:melee?c.range+20:700;
   const tgt=nearestEnemy(bx,by,range);if(!tgt&&(!manual||gun==='shotgun'))return false; // 샷건은 사거리 안에 적이 없으면 안 쏨
   const fa=p.dirA!=null?p.dirA:(p.face>0?0:Math.PI);
