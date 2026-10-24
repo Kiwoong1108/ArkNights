@@ -1612,7 +1612,8 @@ function dhUpdate(A_,dt){
   }else if(A_.k==='dh_exec'){ // 양손 난사 8회
     const t=A_.tgt&&A_.tgt.hp>0?A_.tgt:null,tf=t?footOf(t):armEnd(p.x,p.y,A_.a,300);if(t){A_.a=gang(p.x,p.y,tf.x,tf.y);faceTo(A_.a);}
     while(A_.shots<8&&A_.t>=A_.shots*.06){A_.shots++;const tip=armEnd(p.x,p.y,A_.a+(A_.shots%2?.12:-.12),60);
-      if(t)skHit(t,dmgOf(25),cast(sk,0));else hitLine(tip.x,tip.y,A_.a,320,60,dmgOf(25),cast(sk,0));
+      const C2=cast(sk,0,{counter:false}); // 2타(난사)는 카운터 안 됨
+      if(t)skHit(t,dmgOf(25),C2);else hitLine(tip.x,tip.y,A_.a,320,60,dmgOf(25),C2);
       spr({frames:['fx_dh_trail'],x:tip.x,y:tip.y,h:58,a:A_.a,ax:0,sx:Math.max(.3,(t?gd(p.x,p.y,tf.x,tf.y):320)/330),sy:.5,dur:.1});if(t)spr({frames:['fx_dh_hit'],x:tf.x,y:tf.y,h:70,sc:.9,dur:.12});p.kick=.12;}
   }else if(A_.k==='dh_eq'){
     if(A_.t<.12){const m=armEnd(0,0,A_.a,180/.12*dt);moveOn(p,m.x,m.y);}
