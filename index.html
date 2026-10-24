@@ -138,15 +138,15 @@ const keys=new Set();let ePressT=0;
 /* 스킬 키 설정: WASD 이동을 켰을 때와 껐을 때 키 구성을 따로 둔다. 둘 다 설정에서 바꿀 수 있음
    끔: Q W E + 아이덴티티 Z, 기본 공격 C / 켬: Q E C + 아이덴티티 Z, 기본 공격 X. 상호작용은 G */
 const INTERACT='KeyG';
-const BIND_PRESET={off:{s1:'KeyQ',s2:'KeyW',s3:'KeyE',id:'KeyZ',atk:'KeyC'},on:{s1:'KeyQ',s2:'KeyE',s3:'KeyC',id:'KeyZ',atk:'KeyX'}};
-const BIND_KEYS=['s1','s2','s3','id','atk'];
+const BIND_PRESET={off:{s1:'KeyQ',s2:'KeyW',s3:'KeyE',id:'KeyZ',id2:'KeyX',atk:'KeyC'},on:{s1:'KeyQ',s2:'KeyE',s3:'KeyC',id:'KeyZ',id2:'KeyX',atk:'KeyV'}};
+const BIND_KEYS=['s1','s2','s3','id','id2','atk'];
 let BIND_SETS={off:Object.assign({},BIND_PRESET.off),on:Object.assign({},BIND_PRESET.on)};
-try{const b=JSON.parse(localStorage.getItem('arknights.binds2')||'null');if(b)for(const m of ['off','on'])if(b[m])for(const k of BIND_KEYS)if(typeof b[m][k]==='string')BIND_SETS[m][k]=b[m][k];}catch(err){}
+try{const b=JSON.parse(localStorage.getItem('arknights.binds3')||'null');if(b)for(const m of ['off','on'])if(b[m])for(const k of BIND_KEYS)if(typeof b[m][k]==='string')BIND_SETS[m][k]=b[m][k];}catch(err){}
 const BIND={};
 let BIND_DEF=BIND_PRESET.off;
-function saveBinds(){try{BIND_SETS[OPT.wasd?'on':'off']=Object.assign({},BIND);localStorage.setItem('arknights.binds2',JSON.stringify(BIND_SETS));}catch(err){}}
+function saveBinds(){try{BIND_SETS[OPT.wasd?'on':'off']=Object.assign({},BIND);localStorage.setItem('arknights.binds3',JSON.stringify(BIND_SETS));}catch(err){}}
 function applyBindSet(){const m=OPT.wasd?'on':'off';for(const k of BIND_KEYS)BIND[k]=BIND_SETS[m][k];BIND_DEF=BIND_PRESET[m];}
-const BIND_LABEL={s1:'스킬 1',s2:'스킬 2',s3:'스킬 3',id:'아이덴티티',atk:'기본 공격 (보스전)'};
+const BIND_LABEL={s1:'스킬 1',s2:'스킬 2',s3:'스킬 3',id:'아이덴티티 (→)',id2:'아이덴티티 2 (←)',atk:'기본 공격 (보스전)'};
 const KEYNAMES={Space:'Space',ShiftLeft:'L Shift',ShiftRight:'R Shift',ControlLeft:'L Ctrl',ControlRight:'R Ctrl',AltLeft:'L Alt',AltRight:'R Alt',Tab:'Tab',CapsLock:'Caps',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',Enter:'Enter',Backspace:'Back'};
 function keyName(c){if(!c)return '-';if(c.startsWith('Key'))return c.slice(3);if(c.startsWith('Digit'))return c.slice(5);if(c.startsWith('Numpad'))return 'Num '+c.slice(6);return KEYNAMES[c]||c;}
 const OPT={wasd:false};
@@ -154,7 +154,7 @@ try{const o=JSON.parse(localStorage.getItem('arknights.opts')||'null');if(o&&typ
 applyBindSet();
 function saveOpts(){try{localStorage.setItem('arknights.opts',JSON.stringify(OPT));}catch(err){}}
 const WASD=['KeyW','KeyA','KeyS','KeyD'];
-const skillCodes=()=>[BIND.s1,BIND.s2,BIND.s3,BIND.id,BIND.atk];
+const skillCodes=()=>[BIND.s1,BIND.s2,BIND.s3,BIND.id,BIND.id2,BIND.atk];
 let settingsOpen=false,capture=null,captureMsg='';
 addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code))e.preventDefault();
@@ -172,7 +172,8 @@ addEventListener('keydown',e=>{
   if(e.code===INTERACT&&scene==='lobby'&&!settingsOpen&&!skillWin.open&&!invWin.open)pressE();
   if(scene==='game'&&G&&G.choice){const n=e.code.startsWith('Digit')?+e.code.slice(5)-1:-1;if(n>=0)pickChoice(n);return;}
   if(scene==='game'&&G)for(const k of ['s1','s2','s3'])if(e.code===BIND[k])useSkill(k);
-  if(scene==='game'&&G&&e.code===BIND.id)toggleStance();
+  if(scene==='game'&&G&&e.code===BIND.id)toggleStance(1);
+  if(scene==='game'&&G&&e.code===BIND.id2&&G.cls.id==='devilhunter')toggleStance(-1);
   if(e.code==='Digit9'&&bossDebug()&&scene==='game'&&G&&G.boss&&G.boss.hp>0){const B=G.boss;B.hp=Math.min(B.hp,B.max*BOSS_INFO.phases[Math.min(1,B.phase-1)]);} // 구현 단계: 다음 페이즈 체력으로
 });
 addEventListener('keyup',e=>{keys.delete(e.code);if(scene==='game'&&G&&G.p.act&&G.p.act.k==='dh_perfect'&&e.code===BIND[G.p.act.key])dhPerfectFire(G.p.act);if(scene==='game'&&G&&G.p.act&&G.p.act.k==='burst'&&e.code===BIND[G.p.act.slot])releaseBurst();});
@@ -779,7 +780,7 @@ function drawSkillWin(){
 /* 로비 설정 창: 키 설정 탭 */
 function drawSettings(){
   ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
-  const w=Math.min(440,VW-32),h=446,x=Math.round((VW-w)/2),y=Math.max(8,Math.round((VH-h)/2));
+  const w=Math.min(440,VW-32),h=490,x=Math.round((VW-w)/2),y=Math.max(8,Math.round((VH-h)/2));
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('설정',x+22,y+28,16,'#e8c06a');
   button(x+w-44,y+12,30,30,'X',()=>{settingsOpen=false;capture=null;});
@@ -1495,9 +1496,9 @@ function drawChoice(){const g=G,c=g&&g.choice;if(!c)return;c.t+=1/60;const list=
 
 /* 아이덴티티: 캐릭터마다 하나로 고정 (스킬창 목록에는 없음) */
 const IDENTITY={devilhunter:{name:'퀵 스탠스',icon:'ic_dhid',desc:'누를 때마다 핸드건 → 샷건 → 라이플 순서로 총을 바꿔요.'},warlord:{name:'전투 태세',icon:'ic_id',desc:'켜면 이동속도가 0.5배가 되고 최대 체력 50%의 쉴드가 생겨요. 잡기를 뺀 공격에 밀려나지 않아요. 끄면 2초 뒤 다시 켤 수 있어요.'}};
-function toggleStance(){
+function toggleStance(dir=1){
   const g=G;if(!g||g.paused||g.over||g.choice||!IDENTITY[g.cls.id]||slotLocked('id'))return;const p=g.p;
-  if(g.cls.id==='devilhunter'){if(!(p.act&&p.act.hold)&&!(p.lock&&p.lock.k!=='stagger'))swapGun();return;}
+  if(g.cls.id==='devilhunter'){if(!(p.act&&p.act.hold)&&!(p.lock&&p.lock.k!=='stagger'))swapGun(dir);return;}
   if(p.stance){if(p.stance.t>=.1){p.stance=null;p.shield=0;setCd('id',2);}return;}   // 켠 뒤 0.1초부터 끌 수 있음
   if(p.lock&&p.lock.k!=='stagger')return;if((g.cds.id||0)>0)return;
   p.stance={t:0};p.shield=p.max*.5;G.fx.push({k:'bring',x:p.x,y:p.y,r:150,t:0,dur:.4,blue:1});
@@ -1547,7 +1548,7 @@ const curGun=()=>scene==='game'&&G?(G.p.gun||'handgun'):(skillWin.gun||'handgun'
 function dhLoadout(){const o=dhLO()[curGun()];return {s1:o.s1,s2:null,s3:o.s3,id:null,_dh:o};}
 
 /* 퀵 스탠스: 총 바꾸기 (0.05초 재사용) */
-function swapGun(){const g=G,p=g.p;if((g.cds.id||0)>0)return;const i=GUNS.indexOf(p.gun||'handgun');p.gun=GUNS[(i+1)%3];p.gunFlip=!p.gunFlip;p.swapT=0;setCd('id',.05);
+function swapGun(dir=1){const g=G,p=g.p;if((g.cds.id||0)>0)return;const i=GUNS.indexOf(p.gun||'handgun');p.gun=GUNS[(i+dir+3)%3];p.gunFlip=!p.gunFlip;p.swapT=0;p.swapDir=dir;setCd('id',.05);
   if(p.combo&&p.combo.sk.gun)finishCombo();}
 /* 시전 */
 function dhStart(sk,step=0){
@@ -1679,7 +1680,12 @@ function drawDhSlots(cls){
   if(p&&p.swapT!=null&&p.swapT<.05){const k=p.swapT/.05;ctx.save();ctx.beginPath();ctx.rect(mid.x,mid.y,mid.size,mid.size);ctx.clip();ctx.globalCompositeOperation='lighter';
     const cx=mid.x+mid.size*(1.1-1.2*k),cy=mid.y+mid.size*(-.1+1.2*k);ctx.translate(cx,cy);ctx.rotate(-Math.PI/4);const g2=ctx.createLinearGradient(-14,0,14,0);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(.5,'rgba(255,255,255,.95)');g2.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g2;ctx.fillRect(-14,-mid.size,28,mid.size*2);ctx.restore();}
   const ii=IMG.ic_dhid;if(ii){ctx.save();ctx.translate(idq.x+idq.size/2,idq.y+idq.size/2);ctx.scale(flip,1);ctx.drawImage(ii,-idq.size/2+2,-idq.size/2+2,idq.size-4,idq.size-4);ctx.restore();
-    ctx.font=`12px ${FONT}`;const key=keyName(BIND.id),kw=Math.max(18,ctx.measureText(key).width+8);ctx.fillStyle='rgba(8,9,14,.75)';ctx.fillRect(idq.x+3,idq.y+3,kw,18);text(key,idq.x+3+kw/2,idq.y+13,12,'#e8c06a','center',false);}
+    const hw=idq.size/2,hot=p&&p.swapT!=null&&p.swapT<.12?p.swapDir:0;
+    for(const [side,key,arrow,dir] of [[0,BIND.id2,'◀',-1],[1,BIND.id,'▶',1]]){const hx=idq.x+side*hw;
+      if(hot===dir){ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(hx+2,idq.y+2,hw-4,idq.size-4);}
+      ctx.font=`12px ${FONT}`;const kn=keyName(key),kw=Math.max(18,ctx.measureText(kn).width+8);ctx.fillStyle='rgba(8,9,14,.75)';ctx.fillRect(hx+(hw-kw)/2,idq.y+3,kw,18);text(kn,hx+hw/2,idq.y+13,12,'#e8c06a','center',false);
+      text(arrow,hx+hw/2,idq.y+idq.size-12,12,hot===dir?'#ffffff':'#c9ccd6','center');}
+    ctx.fillStyle='rgba(232,192,106,.7)';ctx.fillRect(idq.x+hw-1,idq.y+4,2,idq.size-8);}
 }
 
 /* ---------------- 공통 루프 ---------------- */
