@@ -203,7 +203,7 @@ cv.addEventListener('pointerdown',e=>{
       skillWin.drag={id:e.pointerId,y,s:skillWin.scroll,moved:false,bar:onBar};return;}
   }
   if(invWin.open&&scene==='lobby'&&!settingsOpen){const card=invWin.cards.find(c=>inRect(c,e.offsetX,e.offsetY));
-    if(card&&card.it.startsWith('core:')){invWin.sel=card.it;skillDrag={id:e.pointerId,core:card.it.slice(5),sx:e.offsetX,sy:e.offsetY,x:e.offsetX,y:e.offsetY,started:false};return;}}
+    if(CORES_ON&&card&&card.it.startsWith('core:')){invWin.sel=card.it;skillDrag={id:e.pointerId,core:card.it.slice(5),sx:e.offsetX,sy:e.offsetY,x:e.offsetX,y:e.offsetY,started:false};return;}}
   if(uiHit(e.offsetX,e.offsetY))return;
   if(e.pointerType!=='touch')return;touch.on=true;
   if(settingsOpen||capture||(scene==='game'&&G&&(G.paused||G.over)))return;
@@ -515,7 +515,7 @@ function gameUpdate(dt){
   p.inv=Math.max(0,p.inv-dt);p.hurt=Math.max(0,p.hurt-dt);p.lvlFx=Math.max(0,p.lvlFx-dt);
   if(p.hp<=0){p.hp=0;g.over={win:false};if(g.mode==='train')saveInv();return;}
   if(g.boss&&g.boss.hp<=0){g.over={win:true,boss:true};return;}
-  if(g.mode==='train'&&g.kills>=g.trainGoal){g.over={win:true,train:true};INV.boxes++;saveInv();return;}
+  if(g.mode==='train'&&g.kills>=g.trainGoal){g.over={win:true,train:true};if(CORES_ON)INV.boxes++;saveInv();return;}
   // 공격
   p.cd-=dt;if(p.cd<=0&&!p.lock&&!p.act){
     if(g.mode==='train'){if(attack())p.cd=1/c.aspd;else p.cd=.05;}   // 훈련장: 자동 공격
@@ -636,7 +636,7 @@ function gameRender(){
     button(x+40,y+62,w-80,36,'계속하기',togglePause);button(x+40,y+110,w-80,36,'로비로 돌아가기',backToLobby);}
   if(g.over){ctx.fillStyle='rgba(5,6,10,.7)';ctx.fillRect(0,0,VW,VH);const w=Math.min(340,VW-32),h=200,x=(VW-w)/2,y=(VH-h)/2;pixPanel(x,y,w,h);
     text(g.over.train?'훈련장 1단계 클리어':g.over.boss?'보스 처치':g.over.win?'생존 성공':g.over.fall?'낙사':'쓰러졌습니다',VW/2,y+38,24,g.over.win?'#e8c06a':'#e9e6dc','center');
-    if(g.mode==='train'){text(g.over.train?'보상: 랜덤 스킬 코어 상자 ×1':`처치  ${g.kills} / ${g.trainGoal}`,VW/2,y+78,12,g.over.train?'#c49bff':'#e9e6dc','center');text(`영혼조각 +${g.soul}   ·   I키 인벤토리에서 확인`,VW/2,y+102,12,'#e9e6dc','center');}
+    if(g.mode==='train'){text(g.over.train&&CORES_ON?'보상: 랜덤 스킬 코어 상자 ×1':`처치  ${Math.min(g.kills,g.trainGoal)} / ${g.trainGoal}`,VW/2,y+78,12,g.over.train?'#c49bff':'#e9e6dc','center');text(`영혼조각 +${g.soul}   ·   I키 인벤토리에서 확인`,VW/2,y+102,12,'#e9e6dc','center');}
     else{text(`생존 시간  ${mm}:${ss}`,VW/2,y+82,12,'#e9e6dc','center');text(`처치  ${g.kills}   ·   레벨  ${p.lvl}`,VW/2,y+106,12,'#e9e6dc','center');}
     button(x+(w-180)/2,y+138,180,38,'로비로 돌아가기',backToLobby);}
   ePressT=Math.max(0,ePressT-1/60);
@@ -716,7 +716,7 @@ function drawSkillWin(){
   text(`${sk.type}${sk.counter?'  ·  카운터':''}  ·  재사용 대기시간 ${sk.cd}`,rx+rw/2,ry+72,12,'#9aa0b4','center',false);
   wrapText(sk.desc,rx+20,ry+104,rw-40,22,12,'#e9e6dc');
   {const slot=slotOfSkill(current,skillWin.sel),cid=slot&&eqOf(current)[slot],c=cid&&CORES[cid];const owned=Object.keys(CORES).filter(k=>CORES[k].skill===sk.id&&INV.cores[k]).map(k=>CORES[k].name);
-    if(sk.fam)text(c&&c.skill===sk.id?`코어 장착: ${c.name}`:owned.length?`보유 코어: ${owned.join(', ')}`:'코어 없음',rx+20,ry+rh-96,12,c&&c.skill===sk.id?'#c49bff':'#6b7080');}
+    if(sk.fam&&CORES_ON)text(c&&c.skill===sk.id?`코어 장착: ${c.name}`:owned.length?`보유 코어: ${owned.join(', ')}`:'코어 없음',rx+20,ry+rh-96,12,c&&c.skill===sk.id?'#c49bff':'#6b7080');}
   if(sk.opts){const oy=ry+rh-58;ctx.fillStyle='#3a3e4b';ctx.fillRect(rx+18,oy-14,rw-36,2);
     text(sk.id==='quake'?'점프 위치 (사냥)':'대상 (사냥)',rx+20,oy+14,12,'#9aa0b4');
     const bw=Math.min(110,(rw-150)/2);sk.opts.forEach((o,i)=>button(rx+rw-20-(sk.opts.length-i)*(bw+8)+8,oy,bw,30,o,()=>{SKOPT[sk.id]=o;saveSkopt();},{active:skMode(sk)===o}));
@@ -778,7 +778,7 @@ function drawSkillBar(cls){
   const L=loadoutOf(cls),list=skillsOf(cls),dragSk=skillDrag&&skillDrag.started&&!skillDrag.core?list[skillDrag.idx]:null,dragCore=skillDrag&&skillDrag.started&&skillDrag.core?CORES[skillDrag.core]:null,eq=eqOf(cls);
   for(const q of skillBarLayout()){const sk=L[q.k]!=null?list[L[q.k]]:null;
     drawSlot(q.x,q.y,q.size,keyName(BIND[q.k]),BIND[q.k],q.k==='id',sk?sk.name:null,(dragSk&&slotAccepts(q.k,dragSk))||(dragCore&&sk&&sk.id===dragCore.skill),sk);
-    const cid=eq[q.k];if(cid&&CORES[cid])drawCoreGem(q.x+q.size-8,q.y+q.size-9,7,CORES[cid].n,!(sk&&sk.id===CORES[cid].skill));
+    const cid=CORES_ON&&eq[q.k];if(cid&&CORES[cid])drawCoreGem(q.x+q.size-8,q.y+q.size-9,7,CORES[cid].n,!(sk&&sk.id===CORES[cid].skill));
     const cd=scene==='game'&&G&&G.cds[q.k]||0;if(cd>0){const f=cd/(G.cdMax[q.k]||1);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(q.x+2,q.y+2+(q.size-4)*(1-f),q.size-4,(q.size-4)*f);text(Math.ceil(cd)+'',q.x+q.size/2,q.y+q.size/2,16,'#fff','center');}
     if(scene==='game'&&sk&&sk.counter&&G&&G.boss&&G.boss.counterable&&!cd){ctx.strokeStyle=`rgba(127,211,255,${.6+.4*Math.sin(T*24)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
 }
@@ -1106,7 +1106,9 @@ const WL_SKILLS=[
   desc:'키를 누르고 있으면 랜스에 차징해요. 0.4초마다 단계가 올라 최대 3회 포격하고, 1.2초 뒤 1초 더 버틸 수 있어요. 홀딩 중엔 못 움직이고 적을 자동 조준하며, 포격마다 뒤로 밀려나요. 무력화는 3단계일 때 상이에요.'},
 ];
 WL_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
-/* 스킬 코어: 스킬칸 하나에 1개. 그 칸에 해당 스킬이 있을 때만 효과 */
+/* 스킬 코어: 스킬칸 하나에 1개. 그 칸에 해당 스킬이 있을 때만 효과
+   CORES_ON=false: 구현 예정 단계로 숨김 (효과·장착·코어 상자 보상 모두 꺼짐, 코드는 유지) */
+const CORES_ON=false;
 const CORES={
  bash1:{skill:'bash',n:1,name:'뇌진탕',desc:'배쉬의 무력화가 최상이 되고 데미지가 2배가 돼요.'},
  bash2:{skill:'bash',n:2,name:'추가 타격',desc:'2회 콤보로 바뀌어요. 1타는 앞으로 전진하며 방패를 내밀고, 2타는 부채꼴 타격이에요. 데미지 2배. 1타만 쓰면 무력화가 절반이에요.'},
@@ -1130,7 +1132,7 @@ let INV={boxes:0,cores:{},soul:0,eq:{}};
 try{const o=JSON.parse(localStorage.getItem('arknights.inv')||'null');if(o)INV=Object.assign(INV,o);}catch(err){}
 function saveInv(){try{localStorage.setItem('arknights.inv',JSON.stringify(INV));}catch(err){}}
 function eqOf(cls){return INV.eq[cls.id]||(INV.eq[cls.id]={});}
-function coreOf(slot,sk){const id=G&&eqOf(G.cls)[slot],c=id&&CORES[id];return c&&c.skill===sk.id?c.n:0;}
+function coreOf(slot,sk){if(!CORES_ON)return 0;const id=G&&eqOf(G.cls)[slot],c=id&&CORES[id];return c&&c.skill===sk.id?c.n:0;}
 function equipCore(cls,slot,id){const eq=eqOf(cls);const used=Object.keys(eq).filter(s=>eq[s]===id&&s!==slot).length;if(used>=(INV.cores[id]||0))return false;eq[slot]=id;saveInv();return true;}
 function unequipCore(cls,slot){delete eqOf(cls)[slot];saveInv();}
 
@@ -1371,9 +1373,9 @@ function drawInv(){
     text(`${INV.soul}`,cx,cy+44,30,'#e9e6dc','center');text('영혼조각 · 기본 재화',cx,cy+78,12,'#9aa0b4','center');text('훈련장에서 경험치 조각 1개당 1개씩 모여요',cx,cy+100,12,'#6b7080','center');
     return;}
   // 아이템 칸
-  const items=[];if(INV.boxes>0)items.push('box');for(const id in CORES)if(INV.cores[id])items.push('core:'+id);
+  const items=[];if(CORES_ON){if(INV.boxes>0)items.push('box');for(const id in CORES)if(INV.cores[id])items.push('core:'+id);}
   const gw=Math.round((w-44)*.56),ts=64,gap=10,cols=Math.max(1,Math.floor((gw+gap)/(ts+gap)));
-  if(!items.length){text('아직 아이템이 없어요',x+22+gw/2,top+40,12,'#6b7080','center');text('훈련장 1단계를 클리어하면 코어 상자를 받아요',x+22+gw/2,top+62,12,'#6b7080','center');}
+  if(!items.length){text('아직 아이템이 없어요',x+22+gw/2,top+40,12,'#6b7080','center');if(CORES_ON)text('훈련장 1단계를 클리어하면 코어 상자를 받아요',x+22+gw/2,top+62,12,'#6b7080','center');}
   const eq=eqOf(current);
   items.forEach((it,i)=>{const tx=x+22+(i%cols)*(ts+gap),ty=top+Math.floor(i/cols)*(ts+gap+14),sel=invWin.sel===it;
     if(it==='box'){slotBox(tx,ty,ts);drawChest(tx+6,ty+6,ts-12);text('×'+INV.boxes,tx+ts-4,ty+ts-8,12,'#fff','right');}
