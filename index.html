@@ -246,6 +246,7 @@ cv.addEventListener('pointerup',tEnd);cv.addEventListener('pointercancel',tEnd);
 /* ---------------- 공용 ---------------- */
 let scene='lobby';
 let current=CLASSES[0];
+const READY=new Set(['warlord','devilhunter']); // 스킬이 구현된 캐릭터만 선택 가능
 let tr=null; // 화면 전환(암전)
 function transition(outDur,fn,inDur){tr={t:0,out:outDur,in:inDur,fn,done:false};}
 function trAlpha(){if(!tr)return 0;return !tr.done?Math.min(1,tr.t/tr.out):Math.max(0,1-tr.t/tr.in);}
@@ -393,7 +394,7 @@ function lobbyUpdate(dt){
 function burst(x,y,c,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=60+Math.random()*160;lobby.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,g:220,life:.5+Math.random()*.4,c,s:4});}}
 function lobbyInteract(){
   const L=lobby;if(!L.target||L.fx)return;ePressT=.16;const it=L.target;
-  if(it.kind==='ped'){if(it.obj.cls===current){burst(it.x,it.y-90,'#c9c9d2',10);return;}L.fx={type:'select',t:0,to:it.obj.cls};}
+  if(it.kind==='ped'){if(!READY.has(it.obj.cls.id)){it.obj.deny=.4;return;}if(it.obj.cls===current){burst(it.x,it.y-90,'#c9c9d2',10);return;}L.fx={type:'select',t:0,to:it.obj.cls};}
   else if(it.kind==='portal'){L.fx={type:'portal',t:0,mode:it.obj.mode,obj:it.obj};}
   else if(it.kind==='sign'){L.sign=!L.sign;}
 }
@@ -406,7 +407,13 @@ function lobbyRender(){
   // 깊이 정렬
   const ents=[];
   for(const q of peds)ents.push({y:q.y,draw:()=>{const sel=q.cls===current;drawPedestal(q,sel);drawChar(q.cls,q.x,q.y-12,q.face,q.t,false,sel?.22:1,false);
-    text(q.cls.name,q.x,q.y+44,20,sel?'#e8c06a':'#e9e6dc','center');if(sel)text('선택됨',q.x,q.y+68,12,'#e8c06a','center');}});
+    if(!READY.has(q.cls.id)){q.deny=Math.max(0,(q.deny||0)-1/60);const sx=Math.sin(q.deny*60)*q.deny*12,lx=q.x+sx,ly=q.y-95; // 잠금: 자물쇠로 덮음
+      ctx.fillStyle='rgba(8,10,16,.55)';ctx.beginPath();ctx.ellipse(q.x,q.y-80,62,92,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#c9ccd6';ctx.lineWidth=12;ctx.beginPath();ctx.arc(lx,ly-26,24,Math.PI,0);ctx.stroke();ctx.strokeStyle='#7a7f8e';ctx.lineWidth=4;ctx.beginPath();ctx.arc(lx,ly-26,24,Math.PI,0);ctx.stroke();
+      ctx.fillStyle='#8a6a2c';ctx.fillRect(lx-38,ly-28,76,58);ctx.fillStyle='#d8b25a';ctx.fillRect(lx-34,ly-24,68,50);ctx.fillStyle='#f3d98c';ctx.fillRect(lx-34,ly-24,68,6);
+      ctx.fillStyle='#3a2a10';ctx.beginPath();ctx.arc(lx,ly-4,8,0,Math.PI*2);ctx.fill();ctx.fillRect(lx-3,ly,6,14);
+      text('준비 중',q.x,q.y+68,12,'#9aa0b4','center');}
+    text(q.cls.name,q.x,q.y+44,20,sel?'#e8c06a':READY.has(q.cls.id)?'#e9e6dc':'#8a8f9e','center');if(sel)text('선택됨',q.x,q.y+68,12,'#e8c06a','center');}});
   for(const o of [portal,trainPortal])ents.push({y:o.y,draw:()=>drawPortal(o,T,chObj===o?charge:0)});
   ents.push({y:signObj.y,draw:drawSign});
   ents.push({y:p.y,draw:()=>{
