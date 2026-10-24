@@ -129,17 +129,23 @@ function drawChar(cls,x,y,face,t,moving,alpha=1,shadow=true,ent=null){
 
 /* ---------------- 입력 ---------------- */
 const keys=new Set();let ePressT=0;
-/* 스킬 키 설정: 스킬 1~3과 아이덴티티 모두 로비 설정에서 변경 */
-const BIND_DEF={s1:'KeyQ',s2:'KeyW',s3:'KeyE',id:'KeyG',atk:'KeyC'};
+/* 스킬 키 설정: WASD 이동을 켰을 때와 껐을 때 키 구성을 따로 둔다. 둘 다 설정에서 바꿀 수 있음
+   끔: Q W E + 아이덴티티 Z, 기본 공격 C / 켬: Q E C + 아이덴티티 Z, 기본 공격 X. 상호작용은 G */
+const INTERACT='KeyG';
+const BIND_PRESET={off:{s1:'KeyQ',s2:'KeyW',s3:'KeyE',id:'KeyZ',atk:'KeyC'},on:{s1:'KeyQ',s2:'KeyE',s3:'KeyC',id:'KeyZ',atk:'KeyX'}};
 const BIND_KEYS=['s1','s2','s3','id','atk'];
-const BIND=Object.assign({},BIND_DEF);
-try{const b=JSON.parse(localStorage.getItem('arknights.binds')||'null');if(b)for(const k of BIND_KEYS)if(typeof b[k]==='string')BIND[k]=b[k];}catch(err){}
-function saveBinds(){try{localStorage.setItem('arknights.binds',JSON.stringify(BIND));}catch(err){}}
+let BIND_SETS={off:Object.assign({},BIND_PRESET.off),on:Object.assign({},BIND_PRESET.on)};
+try{const b=JSON.parse(localStorage.getItem('arknights.binds2')||'null');if(b)for(const m of ['off','on'])if(b[m])for(const k of BIND_KEYS)if(typeof b[m][k]==='string')BIND_SETS[m][k]=b[m][k];}catch(err){}
+const BIND={};
+let BIND_DEF=BIND_PRESET.off;
+function saveBinds(){try{BIND_SETS[OPT.wasd?'on':'off']=Object.assign({},BIND);localStorage.setItem('arknights.binds2',JSON.stringify(BIND_SETS));}catch(err){}}
+function applyBindSet(){const m=OPT.wasd?'on':'off';for(const k of BIND_KEYS)BIND[k]=BIND_SETS[m][k];BIND_DEF=BIND_PRESET[m];}
 const BIND_LABEL={s1:'스킬 1',s2:'스킬 2',s3:'스킬 3',id:'아이덴티티',atk:'기본 공격 (보스전)'};
 const KEYNAMES={Space:'Space',ShiftLeft:'L Shift',ShiftRight:'R Shift',ControlLeft:'L Ctrl',ControlRight:'R Ctrl',AltLeft:'L Alt',AltRight:'R Alt',Tab:'Tab',CapsLock:'Caps',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',Enter:'Enter',Backspace:'Back'};
 function keyName(c){if(!c)return '-';if(c.startsWith('Key'))return c.slice(3);if(c.startsWith('Digit'))return c.slice(5);if(c.startsWith('Numpad'))return 'Num '+c.slice(6);return KEYNAMES[c]||c;}
 const OPT={wasd:false};
 try{const o=JSON.parse(localStorage.getItem('arknights.opts')||'null');if(o&&typeof o.wasd==='boolean')OPT.wasd=o.wasd;}catch(err){}
+applyBindSet();
 function saveOpts(){try{localStorage.setItem('arknights.opts',JSON.stringify(OPT));}catch(err){}}
 const WASD=['KeyW','KeyA','KeyS','KeyD'];
 const skillCodes=()=>[BIND.s1,BIND.s2,BIND.s3,BIND.id,BIND.atk];
@@ -157,7 +163,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Escape'){if(scene==='lobby'){if(invWin.open)invWin.open=false;else if(skillWin.open)skillWin.open=false;else settingsOpen=!settingsOpen;}else togglePause();return;}
   if(e.code==='KeyK'&&scene==='lobby'&&!settingsOpen&&!lobby.fx){skillWin.open=!skillWin.open;invWin.open=false;skillWin.scroll=0;skillWin.sel=0;return;}
   if(e.code==='KeyI'&&scene==='lobby'&&!settingsOpen&&!lobby.fx){invWin.open=!invWin.open;skillWin.open=false;return;}
-  if(e.code==='KeyE'&&scene==='lobby'&&!settingsOpen&&!skillWin.open&&!invWin.open)pressE();
+  if(e.code===INTERACT&&scene==='lobby'&&!settingsOpen&&!skillWin.open&&!invWin.open)pressE();
   if(scene==='game'&&G)for(const k of ['s1','s2','s3'])if(e.code===BIND[k])useSkill(k);
   if(e.code==='Digit9'&&bossDebug()&&scene==='game'&&G&&G.boss&&G.boss.hp>0){const B=G.boss;B.hp=Math.min(B.hp,B.max*BOSS_INFO.phases[Math.min(1,B.phase-1)]);} // 구현 단계: 다음 페이즈 체력으로
 });
@@ -262,7 +268,7 @@ function drawKeyE(cx,bottom,pressed,alpha){
     if(r<=faceBot){px(c,r,r===faceTop?'#eeeef2':(c===1?'#dadae0':'#c4c4cb'));}
     else if(r<=sideBot){px(c,r,'#86868f');}
   }
-  const E=['11111','1....','1111.','1....','11111'],er=faceTop+(pressed?2:1);
+  const E=['.111.','1....','1.111','1...1','.111.'],er=faceTop+(pressed?2:1);
   E.forEach((row,i)=>[...row].forEach((ch,j)=>{if(ch==='1')px(4+j,er+i,'#46464e');}));
   ctx.restore();
 }
@@ -416,7 +422,7 @@ function lobbyRender(){
   text('현재 캐릭터',30,34,12,'#9aa0b4');text(current.name,30,56,20,'#e8c06a');text(current.wep,126,57,12,'#c9c9d2');
   if(L.sign){const w=Math.min(460,VW-32),h=216,x=(VW-w)/2,y=VH-h-24;pixPanel(x,y,w,h);
     text('조작 안내',x+20,y+26,16,'#e8c06a');
-    const rows=[[OPT.wasd?'WASD / 방향키':'방향키','이동'],['I','인벤토리'],['E','캐릭터 선택 · 포탈 입장'],['K','스킬창'],['보스전 C','기본 공격 (훈련장은 자동)'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
+    const rows=[[OPT.wasd?'WASD / 방향키':'방향키','이동'],['I','인벤토리'],['G','캐릭터 선택 · 포탈 입장'],['K','스킬창'],[`보스전 ${keyName(BIND.atk)}`,'기본 공격 (훈련장은 자동)'],['ESC / 설정','키 설정'],['인게임 스킬',`${keyName(BIND.s1)} · ${keyName(BIND.s2)} · ${keyName(BIND.s3)} · 아이덴티티 ${keyName(BIND.id)}`]];
     rows.forEach((r,i)=>{text(r[0],x+20,y+56+i*22,12,'#e9e6dc');text(r[1],x+170,y+56+i*22,12,'#9aa0b4');});}
   if(!lobby.fx)button(VW-16-84,16,84,36,'설정',()=>{settingsOpen=!settingsOpen;capture=null;});
   if(skillWin.open)drawSkillWin();
@@ -745,7 +751,7 @@ function drawSettings(){
   ctx.fillStyle='#3a3e4b';ctx.fillRect(x+20,y+90,w-40,2);
   const kw=Math.min(132,w*.34);
   text('WASD 이동',x+30,y+124,12,'#e9e6dc');
-  button(x+w-kw-20,y+108,kw,32,OPT.wasd?'켜기':'끄기',()=>{OPT.wasd=!OPT.wasd;saveOpts();},{active:OPT.wasd});
+  button(x+w-kw-20,y+108,kw,32,OPT.wasd?'켜기':'끄기',()=>{saveBinds();OPT.wasd=!OPT.wasd;saveOpts();applyBindSet();},{active:OPT.wasd});
   ctx.fillStyle='#2a2d38';ctx.fillRect(x+20,y+150,w-40,2);
   BIND_KEYS.forEach((k,i)=>{const ry=y+162+i*44,clash=OPT.wasd&&WASD.includes(BIND[k]);
     text(BIND_LABEL[k],x+30,ry+16,12,clash?'#ff9aa5':k==='id'?'#e8c06a':'#e9e6dc');
