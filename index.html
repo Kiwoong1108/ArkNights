@@ -496,6 +496,9 @@ function killCheck(){
     for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2,s=60+Math.random()*120;G.fx.push({k:'bit',x:e.x,y:e.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,dur:.45,c:ETYPES[e.type].c2});}
     return false;});
 }
+/* 기본 공격 데미지: 모든 캐릭터 동일(10), 레벨업 공격력 상승분만 비율로 반영 */
+const BASIC_DMG=10;
+const basicDmg=()=>BASIC_DMG*G.p.atk/G.cls.atk;
 function attack(manual){
   const c=G.cls,p=G.p,bx=p.x,by=p.y-55;
   const melee=c.mode==='melee'||c.mode==='slam';
@@ -505,13 +508,13 @@ function attack(manual){
   if(melee){
     for(const e of foes()){const dx=e.x-bx,dy=e.y-by,d=Math.hypot(dx,dy);if(d>c.range+e.r)continue;
       if(c.arc<360){let da=Math.atan2(dy,dx)-ang;da=Math.atan2(Math.sin(da),Math.cos(da));if(Math.abs(da)>c.arc/360*Math.PI)continue;}
-      hurtEnemy(e,p.atk);const kb=c.mode==='slam'?26:12;e.x+=dx/(d||1)*kb;e.y+=dy/(d||1)*kb;}
+      hurtEnemy(e,basicDmg());const kb=c.mode==='slam'?26:12;e.x+=dx/(d||1)*kb;e.y+=dy/(d||1)*kb;}
     G.fx.push({k:c.mode==='slam'?'slam':'slash',x:bx,y:by,a:ang,range:c.range,arc:c.arc,t:0,dur:c.mode==='slam'?.35:.22,c:c.c1,c2:c.c2,dir:Math.random()<.5?1:-1});
   }else{
     const hx=p.x+p.face*.32*CH,hy=p.y-.4*CH;const a=tgt?Math.atan2(tgt.y-hy,tgt.x-hx):ang;
     const n=c.mode==='card'?3:1;
     for(let i=0;i<n;i++){const aa=a+(i-(n-1)/2)*.18;
-      G.pr.push({k:c.mode,x:hx,y:hy,vx:Math.cos(aa)*c.speed,vy:Math.sin(aa)*c.speed,life:c.mode==='wave'?1.1:1.6,pierce:c.pierce,hits:new Set(),r:c.mode==='wave'?34:(c.mode==='shell'?14:10),dmg:p.atk*(n>1?.6:1),tgt,splash:c.splash||0,c:c.c1,c2:c.c2,spin:0,age:0});}
+      G.pr.push({k:c.mode,x:hx,y:hy,vx:Math.cos(aa)*c.speed,vy:Math.sin(aa)*c.speed,life:c.mode==='wave'?1.1:1.6,pierce:c.pierce,hits:new Set(),r:c.mode==='wave'?34:(c.mode==='shell'?14:10),dmg:basicDmg()*(n>1?.6:1),tgt,splash:c.splash||0,c:c.c1,c2:c.c2,spin:0,age:0});}
   }
   return true;
 }
