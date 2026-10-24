@@ -155,7 +155,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyK'&&scene==='lobby'&&!settingsOpen&&!lobby.fx){skillWin.open=!skillWin.open;skillWin.scroll=0;skillWin.sel=0;return;}
   if(e.code==='KeyE'&&scene==='lobby'&&!settingsOpen&&!skillWin.open)pressE();
   if(scene==='game'&&G)for(const k of ['s1','s2','s3'])if(e.code===BIND[k])useSkill(k);
-  if(e.code==='Digit9'&&scene==='game'&&G&&G.boss&&G.boss.hp>0){const B=G.boss;B.hp=Math.min(B.hp,B.phase===1?B.max*2/3:B.max/3);} // 테스트: 다음 페이즈 체력으로
+  if(e.code==='Digit9'&&bossDebug()&&scene==='game'&&G&&G.boss&&G.boss.hp>0){const B=G.boss;B.hp=Math.min(B.hp,B.max*BOSS_INFO.phases[Math.min(1,B.phase-1)]);} // 구현 단계: 다음 페이즈 체력으로
 });
 addEventListener('keyup',e=>{keys.delete(e.code);if(scene==='game'&&G&&G.p.act&&G.p.act.k==='burst'&&e.code===BIND[G.p.act.slot])releaseBurst();});
 addEventListener('blur',()=>keys.clear());
@@ -858,7 +858,11 @@ function grabCombo(B,dir){
     const a=dir!=null?dir:(B.face>0?0:Math.PI),s={x:p.x,y:p.y},t=armEnd(p.x,p.y,a,340);t.y+=(Math.random()-.5)*60;
     p.lock={k:'throw',sx:s.x,sy:s.y,tx:t.x,ty:t.y,t:0,dur:.7};}}));
 }
-function phaseTarget(B){return B.hp<=B.max/3?3:B.hp<=B.max*2/3?2:1;}
+/* 보스 개발 단계: 'impl'(구현) → 'test'(테스트) → 'release'(배포)
+   구현 단계에서만 상단에 페이즈·패턴 이름과 페이즈 경계가 보이고, 9키 페이즈 건너뛰기가 된다 */
+const BOSS_INFO={name:'붉은 미노타우르스',stage:'test',phases:[.75,.40]}; // 1페이즈 ~75%, 2페이즈 ~40%, 이후 3페이즈
+const bossDebug=()=>BOSS_INFO.stage==='impl';
+function phaseTarget(B){const r=B.hp/B.max,[p2,p3]=BOSS_INFO.phases;return r<=p3?3:r<=p2?2:1;}
 function queuePattern(B){
   let pat;
   if(phaseTarget(B)>B.phase&&!G.broken.every(b=>b))pat='break';
@@ -1038,12 +1042,12 @@ function drawBoss(){
 }
 function drawBossHud(){
   const B=G.boss;if(!B)return;const w=Math.min(520,VW-40),x=(VW-w)/2,y=34;
-  text(`붉은 미노타우르스  ·  ${B.phase}페이즈`,VW/2,y-8,14,'#ff8a8f','center');
+  text(bossDebug()?`${BOSS_INFO.name}  ·  ${B.phase}페이즈`:BOSS_INFO.name,VW/2,y-8,14,'#ff8a8f','center');
   ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(x-3,y+3,w+6,18);ctx.fillStyle='#3a1015';ctx.fillRect(x,y+6,w,12);
   ctx.fillStyle='#d8323f';ctx.fillRect(x,y+6,w*Math.max(0,B.hp)/B.max,12);ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(x,y+6,w*Math.max(0,B.hp)/B.max,3);
-  ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(x+w*2/3,y+4,2,16);ctx.fillRect(x+w/3,y+4,2,16); // 페이즈 경계
+  if(bossDebug()){ctx.fillStyle='rgba(255,255,255,.55)';for(const r of BOSS_INFO.phases)ctx.fillRect(x+w*r,y+4,2,16);} // 페이즈 경계(구현 단계만)
   text(`${Math.max(0,Math.ceil(B.hp))} / ${B.max}`,VW/2,y+13,12,'#fff','center');
-  if(B.pattern)text(PATTERN_NAME[B.pattern],VW/2,y+36,12,B.pattern==='rush'?'#7fd3ff':'#c9c9d2','center');
+  if(bossDebug()&&B.pattern)text(PATTERN_NAME[B.pattern],VW/2,y+36,12,B.pattern==='rush'?'#7fd3ff':'#c9c9d2','center');
 }
 
 /* ================= 워로드 스킬 =================
