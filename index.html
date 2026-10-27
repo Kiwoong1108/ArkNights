@@ -1753,21 +1753,21 @@ function drawDhSlots(cls){
    아이덴티티: 터뜨린 스택 12장마다 덱에서 카드 1장을 뽑는다.
    데미지는 일부러 비워 둔다(AR_DMG = 0). 맞으면 번쩍임·스택·카운터만 적용 */
 const AR_SKILLS=[
- {id:'aq',kind:'stack',fam:'ar',icon:'ic_ast1',name:'쿼드라 엑셀레이트',type:'일반',cdSec:5,opts:['가까운 적','이동 방향'],
+ {id:'aq',kind:'stack',fam:'ar',icon:'ic_ast1',name:'쿼드라 엑셀레이트',type:'일반',cdSec:2.5,opts:['가까운 적','이동 방향'],
   desc:'0.25초 안에 카드 4장을 연달아 던져요. 카드마다 피해를 주고, 한 적에게 2장이 맞을 때마다 스택 1장을 쌓아요.'},
- {id:'as',kind:'stack',fam:'ar',icon:'ic_ast2',name:'스크래치 딜러',type:'콤보',cdSec:6,counter:true,opts:['가까운 적','이동 방향'],
+ {id:'as',kind:'stack',fam:'ar',icon:'ic_ast2',name:'스크래치 딜러',type:'콤보',cdSec:2.5,counter:true,opts:['가까운 적','이동 방향'],
   desc:'앞으로 돌진하며 지나간 적을 베어요. 1초 안에 다시 누르면 아래로 내려찍어요. 스택 1장. 카운터 가능.'},
- {id:'ae',kind:'stack',fam:'ar',icon:'ic_ast3',name:'스트림 오브 엣지',type:'일반',cdSec:6,opts:['가까운 적','이동 방향'],
+ {id:'ae',kind:'stack',fam:'ar',icon:'ic_ast3',name:'스트림 오브 엣지',type:'일반',cdSec:2.5,opts:['가까운 적','이동 방향'],
   desc:'대상 위치에 차원문 2개를 열어 그 사이의 적에게 0.5초 동안 피해를 줘요. 즉시 시전. 스택 1장.'},
- {id:'ab',kind:'stack',fam:'ar',icon:'ic_ast4',name:'백 플러쉬',type:'일반',cdSec:5,counter:true,opts:['가까운 적','이동 방향'],
+ {id:'ab',kind:'stack',fam:'ar',icon:'ic_ast4',name:'백 플러쉬',type:'일반',cdSec:2.5,counter:true,opts:['가까운 적','이동 방향'],
   desc:'뒤로 뛰어오르며 앞쪽으로 카드를 흩뿌려요. 스택 1장. 카운터 가능.'},
- {id:'ad',kind:'stack',fam:'ar',icon:'ic_ast5',name:'댄싱 오브 스파인플라워',type:'콤보',cdSec:8,opts:['이동 방향'],
+ {id:'ad',kind:'stack',fam:'ar',icon:'ic_ast5',name:'댄싱 오브 스파인플라워',type:'콤보',cdSec:2.5,opts:['이동 방향'],
   desc:'고른 방향으로 3초간 이동하며 카드를 흩뿌려 4회 공격해요(2회 맞힐 때마다 스택 1장). 이동 중 다시 누르면 처음 자리로 돌아오며 1회 공격해요(스택 1장).'},
- {id:'rc',kind:'ruin',fam:'ar',icon:'ic_aru1',name:'체크메이트',type:'일반',cdSec:8,opts:['가까운 적','이동 방향'],
+ {id:'rc',kind:'ruin',fam:'ar',icon:'ic_aru1',name:'체크메이트',type:'일반',cdSec:4,opts:['가까운 적','이동 방향'],
   desc:'대상 위치에 카드들을 내리꽂아 1회 공격해요. 맞은 적의 스택을 모두 찢어 장수만큼 추가 피해를 줘요.'},
- {id:'rf',kind:'ruin',fam:'ar',icon:'ic_aru2',name:'포 카드',type:'일반',cdSec:8,counter:true,opts:['가까운 적','이동 방향'],
+ {id:'rf',kind:'ruin',fam:'ar',icon:'ic_aru2',name:'포 카드',type:'일반',cdSec:4,counter:true,opts:['가까운 적','이동 방향'],
   desc:'카드 4장을 동시에 앞으로 날려 1회 공격해요(가운데 두 장이 살짝 앞서요). 맞은 적의 스택을 모두 찢어요. 카운터 가능.'},
- {id:'rs',kind:'ruin',fam:'ar',icon:'ic_aru3',name:'세렌디피티',type:'일반',cdSec:10,opts:['가까운 적','이동 방향'],
+ {id:'rs',kind:'ruin',fam:'ar',icon:'ic_aru3',name:'세렌디피티',type:'일반',cdSec:5,opts:['가까운 적','이동 방향'],
   desc:'앞쪽 200도로 카드를 펼쳐 공격한 뒤, 카드를 다시 접으며 추가 피해를 줘요. 맞은 적의 스택을 모두 찢어요.'},
 ];
 AR_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
