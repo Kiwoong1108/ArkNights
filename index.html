@@ -1763,7 +1763,7 @@ const AR_SKILLS=[
  {id:'ab',kind:'stack',fam:'ar',icon:'ic_ast4',name:'백 플러쉬',type:'일반',cdSec:2.5,counter:true,opts:['가까운 적','이동 방향'],
   desc:'뒤로 뛰어오르며 앞쪽으로 카드를 흩뿌려요. 스택 1장. 카운터 가능.'},
  {id:'ad',kind:'stack',fam:'ar',icon:'ic_ast5',name:'댄싱 오브 스파인플라워',type:'콤보',cdSec:2.5,opts:['이동 방향'],
-  desc:'고른 방향으로 1.5초간 이동하며 카드를 흩뿌려 4회 공격해요(2회 맞힐 때마다 스택 1장). 이동 중 다시 누르면 처음 자리로 돌아오며 1회 공격해요(스택 1장).'},
+  desc:'고른 방향으로 0.75초간 이동하며 카드를 흩뿌려 4회 공격해요(2회 맞힐 때마다 스택 1장). 이동 중 다시 누르면 처음 자리로 돌아오며 1회 공격해요(스택 1장).'},
  {id:'rc',kind:'ruin',fam:'ar',icon:'ic_aru1',name:'체크메이트',type:'일반',cdSec:4,opts:['가까운 적','이동 방향'],
   desc:'대상 위치에 카드들을 내리꽂아 1회 공격해요. 맞은 적의 스택을 모두 찢어 장수만큼 추가 피해를 줘요.'},
  {id:'rf',kind:'ruin',fam:'ar',icon:'ic_aru2',name:'포 카드',type:'일반',cdSec:4,counter:true,opts:['가까운 적','이동 방향'],
@@ -1837,7 +1837,7 @@ function arStart(sk,slot,step,C0){const g=G,p=g.p,base={sk,slot,ar:1,t:0,k:sk.id
     p.act=Object.assign(base,{dur:.12,a});return;}
   if(sk.id==='ab'){const t=aimOf(sk,500);faceTo(t.a);p.act=Object.assign(base,{dur:.42,a:t.a,ox:p.x,oy:p.y,C:stackC(sk,1,{once:1,counter:true})});return;}
   if(sk.id==='ad'){const ax=axis(),a=ax.m>.2?Math.atan2(ax.y/YS,ax.x):(p.dirA!=null?p.dirA:0);faceTo(a);
-    p.act=Object.assign(base,{dur:1.5,a,sx:p.x,sy:p.y,hits:0,C:stackC(sk,2)});return;}
+    p.act=Object.assign(base,{dur:.75,a,sx:p.x,sy:p.y,hits:0,C:stackC(sk,2)});return;}
   if(sk.id==='rc'){const t=aimOf(sk,450);faceTo(t.a);const d=Math.min(450,gd(p.x,p.y,t.x,t.y)||300),to=t.e&&t.e.boss?{x:t.x,y:t.y}:armEnd(p.x,p.y,t.a,d);
     p.act=Object.assign(base,{dur:.45,a:t.a,tx:to.x,ty:to.y,C:ruinC(sk)});spr({frames:['fx_ar_check2','fx_ar_check'],x:to.x,y:to.y,h:0,ay:.92,sc:1.6,dur:.55,t:-.12});return;}
   if(sk.id==='rf'){const t=aimOf(sk,650);faceTo(t.a);p.act=Object.assign(base,{dur:.3,a:t.a,C:ruinC(sk,{counter:true})});
@@ -1865,7 +1865,7 @@ function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+
       if(k>=1&&!A_.fin){A_.fin=1;const C=stackC(sk,1,{once:1});hitCircle(p.x,p.y,230,arD('adr'),C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:2.2,dur:.4});G.shake=Math.max(G.shake,5);}
       if(A_.bt>=.35){p.act=null;}return;}
     const m=armEnd(0,0,A_.a,240*dt);moveOn(p,m.x,m.y);
-    while(A_.hits<4&&A_.t>=.15+A_.hits*.37){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
+    while(A_.hits<4&&A_.t>=.08+A_.hits*.18){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
       for(let i=0;i<6;i++){const a=Math.random()*Math.PI*2;G.ar.pr.push({x:p.x,y:p.y,a,spd:700,t:0,delay:9,life:.25,r:1,h:60,hits:new Set(),C:A_.C,rot:i});}}}
   else if(A_.k==='rc'){if(!A_.hit&&A_.t>=.22){A_.hit=1;hitCircle(A_.tx,A_.ty,160,arD('rc'),A_.C);G.shake=Math.max(G.shake,6);}}
   else if(A_.k==='rs'){
