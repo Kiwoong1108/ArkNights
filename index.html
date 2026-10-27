@@ -1752,7 +1752,7 @@ function drawDhSlots(cls){
    루인 스킬(붉은 빛)은 쌓인 카드를 모두 찢어 터뜨린다(장수만큼 추가 피해).
    스킬은 고르지 않는다: 스킬을 쓰고 재사용 대기시간이 끝나면 그 칸에 다음 스킬이 랜덤으로 나온다.
    아이덴티티: 터뜨린 스택 12장마다 덱에서 카드 1장을 뽑는다.
-   데미지는 일부러 비워 둔다(AR_DMG = 0). 맞으면 번쩍임·스택·카운터만 적용 */
+   데미지는 AR_DMG(타격당 공격력 배수)와 AR_RUIN_BONUS(스택 1장당) */
 const AR_SKILLS=[
  {id:'aq',kind:'stack',fam:'ar',icon:'ic_ast1',name:'쿼드라 엑셀레이트',type:'일반',cdSec:2.5,opts:['가까운 적','이동 방향'],
   desc:'0.25초 안에 카드 4장을 연달아 던져요. 카드마다 피해를 주고, 한 적에게 2장이 맞을 때마다 스택 1장을 쌓아요.'},
@@ -1772,8 +1772,10 @@ const AR_SKILLS=[
   desc:'앞쪽 200도로 카드를 펼쳐 공격한 뒤, 카드를 다시 접으며 추가 피해를 줘요. 맞은 적의 스택을 모두 찢어요.'},
 ];
 AR_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
-const AR_DMG={};            // 스킬별 데미지(공격력 배수): 일부러 비워 둠 → 0
-const AR_RUIN_BONUS=0;      // 루인 스킬 스택 1장당 추가 피해: 일부러 비워 둠
+/* 데미지(공격력 배수, 타격 1회당). 스택트 스킬은 시전 1번에 총 3.5배 = 워로드·데빌헌터 '하' 스킬(방패 돌진·파이어 불릿·나선의 추적자)과 같은 수준
+   루인 스킬은 기본 2배 + 스택 1장당 4배 → 4스택이면 18배(공격력 10 기준 약 180): 지금까지 나온 한 번의 시전 중 가장 셈(가디언의 낙뢰·버스트 캐넌 약 136) */
+const AR_DMG={aq:.875,as:1.5,as2:2,ae:.7,ab:.7,ad:.7,adr:.7,rc:2,rf:2,rs:1.5,rs2:1.5};
+const AR_RUIN_BONUS=4;      // 루인 스킬 스택 1장당 추가 피해(공격력 배수), 시전당 1번
 const AR_CARDS=[
  {id:'madness',num:'XVI',name:'광기',dur:12,desc:'12초 동안 스킬 사용 공격 속도 +15%'},
  {id:'twisted',num:'II',name:'뒤틀린 운명',dur:4,desc:'4초 동안 스킬 피해 +0~40% (랜덤)'},
@@ -1805,8 +1807,8 @@ function arTick(dt){const g=G;if(!g.ar)return;const A=g.ar,p=g.p;
   A.zones=A.zones.filter(z=>z.t<z.dur);
 }
 /* 맞힘: 데미지(0) + 카운터 + 스택/루인 */
-function arDmg(sk){let d=AR_DMG[sk.id]||0;if(arBuf('twisted'))d*=1+Math.random()*.4;return d;}
-function arStrike(e,C){skHit(e,arDmg(C.sk),C);}
+function arD(key){let d=AR_DMG[key]||0;if(arBuf('twisted'))d*=1+Math.random()*.4;return d;} // 뒤틀린 운명: +0~40%
+function arStrike(e,C){skHit(e,arD(C.dk||C.sk.id),C);}
 function addStack(e,n){e.arStk=Math.min(4,(e.arStk||0)+n);e.arPop=G.time;}
 function stackC(sk,per=1,o={}){ // 스택 스킬 시전: 한 적에게 per번 맞을 때마다 스택 1장, once면 시전당 1장만
   const cnt=new Map(),C=cast(sk,0,o);
@@ -1814,7 +1816,7 @@ function stackC(sk,per=1,o={}){ // 스택 스킬 시전: 한 적에게 per번 �
   return C;}
 function ruinC(sk,o={}){const done=new Set(),C=cast(sk,0,o);
   C.onHit=e=>{if(done.has(e))return;done.add(e);const n=e.arStk||0,eff=arBuf('judge')?4:n;
-    if(eff>0){const h=headOf(e);G.fx.push({k:'artear',x:h.x,y:h.y,n:eff,t:0,dur:.75});if(AR_RUIN_BONUS)hurtEnemy(e,AR_RUIN_BONUS*eff*G.p.atk);G.shake=Math.max(G.shake,3+eff);}
+    if(eff>0){const h=headOf(e);G.fx.push({k:'artear',x:h.x,y:h.y,n:eff,t:0,dur:.75});if(AR_RUIN_BONUS&&e.hp>0)hurtEnemy(e,AR_RUIN_BONUS*eff*G.p.atk*(arBuf('twisted')?1+Math.random()*.4:1));G.shake=Math.max(G.shake,3+eff);}
     e.arStk=0;if(n)G.ar.gauge=Math.min(AR_GAUGE,G.ar.gauge+n);};
   return C;}
 const headOf=e=>e.boss?{x:e.fx,y:e.fy-e.z-330}:{x:e.x,y:e.y-e.r-34};
@@ -1849,26 +1851,26 @@ function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+
     if(A_.thrown===1&&!A_.fx){A_.fx=1;spr({frames:['fx_ar_quad'],x:p.x,y:p.y,h:60,a:A_.a,ax:.15,sx:1.6,sy:1.3,dur:.3});}}
   else if(A_.k==='as'&&A_.step===0){ // 돌진하며 베기
     if(A_.t<.16){const m=armEnd(0,0,A_.a,320/.16*dt);moveOn(p,m.x,m.y);}
-    else if(!A_.hit){A_.hit=1;hitLine(A_.ox,A_.oy,A_.a,gd(A_.ox,A_.oy,p.x,p.y)+90,140,0,A_.C);G.shake=Math.max(G.shake,3);}
+    else if(!A_.hit){A_.hit=1;hitLine(A_.ox,A_.oy,A_.a,gd(A_.ox,A_.oy,p.x,p.y)+90,140,arD('as'),A_.C);G.shake=Math.max(G.shake,3);}
     if(A_.t>=A_.dur){p.act=null;p.arCombo={slot:A_.slot,sk,until:G.time+1,C:A_.C};return;}}
   else if(A_.k==='as'){ // 내려찍기
     p.z=A_.t<.16?Math.sin(A_.t/.16*Math.PI/2)*70:Math.max(0,70*(1-(A_.t-.16)/.06));
-    if(!A_.hit&&A_.t>=.22){A_.hit=1;p.z=0;const c=armEnd(p.x,p.y,A_.a,90);hitCircle(c.x,c.y,170,0,A_.C,30);spr({frames:['fx_ar_scr2'],x:c.x,y:c.y,h:0,ay:.85,sc:1.7,dur:.4});G.shake=Math.max(G.shake,7);crater(c.x,c.y,80);}}
+    if(!A_.hit&&A_.t>=.22){A_.hit=1;p.z=0;const c=armEnd(p.x,p.y,A_.a,90);hitCircle(c.x,c.y,170,arD('as2'),A_.C,30);spr({frames:['fx_ar_scr2'],x:c.x,y:c.y,h:0,ay:.85,sc:1.7,dur:.4});G.shake=Math.max(G.shake,7);crater(c.x,c.y,80);}}
   else if(A_.k==='ab'){ // 뒤로 뛰며 앞으로 카드
     const k=Math.min(1,A_.t/.32);if(k<1){const e=armEnd(A_.ox,A_.oy,A_.a+Math.PI,220);p.x=A_.ox+(e.x-A_.ox)*k;p.y=A_.oy+(e.y-A_.oy)*k;if(!walk(p.x,p.y))clampWalk(p);}p.z=Math.sin(Math.PI*k)*60;
     if(!A_.thrown&&A_.t>=.08){A_.thrown=1;for(let i=0;i<5;i++)G.ar.pr.push({x:p.x,y:p.y,a:A_.a+(i-2)*.2,spd:1250,t:0,delay:0,life:.42,r:34,h:58+p.z,hits:new Set(),C:A_.C,rot:i,pierce:1});
       spr({frames:['fx_ar_back'],x:p.x,y:p.y,h:70,a:A_.a,ax:.05,sx:2,sy:1.5,dur:.3});}}
   else if(A_.k==='ad'){
     if(A_.back){A_.bt+=dt;const k=Math.min(1,A_.bt/.18);p.x=A_.fx0+(A_.sx-A_.fx0)*k;p.y=A_.fy0+(A_.sy-A_.fy0)*k;
-      if(k>=1&&!A_.fin){A_.fin=1;const C=stackC(sk,1,{once:1});hitCircle(p.x,p.y,230,0,C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:2.2,dur:.4});G.shake=Math.max(G.shake,5);}
+      if(k>=1&&!A_.fin){A_.fin=1;const C=stackC(sk,1,{once:1});hitCircle(p.x,p.y,230,arD('adr'),C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:2.2,dur:.4});G.shake=Math.max(G.shake,5);}
       if(A_.bt>=.35){p.act=null;}return;}
     const m=armEnd(0,0,A_.a,240*dt);moveOn(p,m.x,m.y);
-    while(A_.hits<4&&A_.t>=.15+A_.hits*.37){A_.hits++;hitCircle(p.x,p.y,210,0,A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
+    while(A_.hits<4&&A_.t>=.15+A_.hits*.37){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
       for(let i=0;i<6;i++){const a=Math.random()*Math.PI*2;G.ar.pr.push({x:p.x,y:p.y,a,spd:700,t:0,delay:9,life:.25,r:1,h:60,hits:new Set(),C:A_.C,rot:i});}}}
-  else if(A_.k==='rc'){if(!A_.hit&&A_.t>=.22){A_.hit=1;hitCircle(A_.tx,A_.ty,160,0,A_.C);G.shake=Math.max(G.shake,6);}}
+  else if(A_.k==='rc'){if(!A_.hit&&A_.t>=.22){A_.hit=1;hitCircle(A_.tx,A_.ty,160,arD('rc'),A_.C);G.shake=Math.max(G.shake,6);}}
   else if(A_.k==='rs'){
-    if(!A_.h1&&A_.t>=.12){A_.h1=1;hitSector(p.x,p.y,A_.a,320,Math.PI*200/180,0,A_.C);G.fx.push({k:'arfan',x:p.x,y:p.y,a:A_.a,t:0,dur:.75});}
-    if(!A_.h2&&A_.t>=.55){A_.h2=1;hitSector(p.x,p.y,A_.a,260,Math.PI*200/180,0,cast(sk,0));const c=armEnd(p.x,p.y,A_.a,120);spr({frames:['fx_ar_fold'],x:c.x,y:c.y,h:55,a:A_.a,ax:.3,sc:1.2,dur:.3});G.shake=Math.max(G.shake,6);}}
+    if(!A_.h1&&A_.t>=.12){A_.h1=1;hitSector(p.x,p.y,A_.a,320,Math.PI*200/180,arD('rs'),A_.C);G.fx.push({k:'arfan',x:p.x,y:p.y,a:A_.a,t:0,dur:.75});}
+    if(!A_.h2&&A_.t>=.55){A_.h2=1;hitSector(p.x,p.y,A_.a,260,Math.PI*200/180,arD('rs2'),cast(sk,0));const c=armEnd(p.x,p.y,A_.a,120);spr({frames:['fx_ar_fold'],x:c.x,y:c.y,h:55,a:A_.a,ax:.3,sc:1.2,dur:.3});G.shake=Math.max(G.shake,6);}}
   if(p.act===A_&&A_.t>=A_.dur){p.z=0;p.act=null;}
 }
 /* 아이덴티티: 게이지가 차면 덱에서 1장 */
