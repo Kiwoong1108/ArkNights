@@ -803,7 +803,7 @@ function drawSkillWin(){
 /* 로비 설정 창: 키 설정 탭 */
 function drawSettings(){
   ctx.fillStyle='rgba(5,6,10,.55)';ctx.fillRect(0,0,VW,VH);
-  const w=Math.min(440,VW-32),h=300,x=Math.round((VW-w)/2),y=Math.max(8,Math.round((VH-h)/2));
+  const w=Math.min(440,VW-32),h=490,x=Math.round((VW-w)/2),y=Math.max(8,Math.round((VH-h)/2));
   pixPanel(x,y,w,h);ui.push({x,y,w,h,fn(){}});
   text('설정',x+22,y+28,16,'#e8c06a');
   button(x+w-44,y+12,30,30,'X',()=>{settingsOpen=false;capture=null;});
@@ -813,11 +813,10 @@ function drawSettings(){
   text('WASD 이동',x+30,y+124,12,'#e9e6dc');
   button(x+w-kw-20,y+108,kw,32,OPT.wasd?'켜기':'끄기',()=>{saveBinds();OPT.wasd=!OPT.wasd;saveOpts();applyBindSet();},{active:OPT.wasd});
   ctx.fillStyle='#2a2d38';ctx.fillRect(x+20,y+150,w-40,2);
-  ['atk'].forEach((k,i)=>{const ry=y+162+i*44,clash=OPT.wasd&&WASD.includes(BIND[k]);
+  BIND_KEYS.forEach((k,i)=>{const ry=y+162+i*44,clash=OPT.wasd&&WASD.includes(BIND[k]);
     text(BIND_LABEL[k],x+30,ry+16,12,clash?'#ff9aa5':k==='id'?'#e8c06a':'#e9e6dc');
     if(clash&&w>380)text('이동 키와 겹침',x+w-kw-30,ry+16,12,'#e66a78','right');
     button(x+w-kw-20,ry,kw,32,keyName(BIND[k]),()=>{capture=k;captureMsg='';},{danger:clash});});
-  text('스킬 키는 로비 아래 스킬칸을 클릭해서 바꿔요',x+30,y+222,12,'#9aa0b4');
   button(x+20,y+h-48,110,30,'기본값으로',()=>{Object.assign(BIND,BIND_DEF);saveBinds();});
   text('ESC로 닫기',x+w-22,y+h-33,12,'#6b7080','right');
 
@@ -869,7 +868,7 @@ function drawSkillBar(cls){
     const ck=sk&&sk.gun?sk.id:q.k,cd=scene==='game'&&G&&G.cds[ck]||0;if(cd>0){const f=cd/(G.cdMax[ck]||1);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(q.x+2,q.y+2+(q.size-4)*(1-f),q.size-4,(q.size-4)*f);text(Math.ceil(cd)+'',q.x+q.size/2,q.y+q.size/2,16,'#fff','center');}
     if(scene==='game'&&sk&&sk.counter&&G&&G.boss&&G.boss.counterable&&!cd){ctx.strokeStyle=`rgba(127,211,255,${.6+.4*Math.sin(T*24)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
   drawDhSlots(cls);
-  if(scene==='lobby'&&!settingsOpen&&!capture&&!(skillDrag&&skillDrag.started)){let tip=null;
+  if(false){let tip=null; // 스킬칸 클릭 키 설정: 설정창으로 되돌림
     for(const q of skillBarLayout()){
       const parts=q.k==='id'&&cls.id==='devilhunter'?[['id2',q.x,q.size/2],['id',q.x+q.size/2,q.size/2]]:q.k==='s2'&&cls.id==='devilhunter'?[]:[[q.k,q.x,q.size]];
       for(const [k,bx,bw] of parts){const r={x:bx,y:q.y,w:bw,h:q.size};ui.push(Object.assign(r,{fn(){capture=k;captureMsg='';}}));
