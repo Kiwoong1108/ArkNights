@@ -1140,7 +1140,7 @@ function bossGroggy(B,hold,label){
   B.act=null;
 }
 function bossCounter(B){bossGroggy(B,2.0,'카운터!');}
-/* 하드: 발탄이 쓰러지면 푸른 영혼으로 다시 일어나 4페이즈. 무너진 바닥은 영혼의 힘으로 다시 이어진다 */
+/* 하드: 발탄이 쓰러지면 푸른 영혼으로 다시 일어나 4페이즈 (무너진 바닥은 그대로) */
 const GHOST_FRAME={walk0:'gwalk0',walk1:'gwalk1',walk2:'gwalk2',walk3:'gwalk3',swing0:'gcharge0',swing1:'gcharge1',swing2:'gswing',swing3:'gwalk0',grab0:'ggrab0',grab1:'ggrab1',
   stomp0:'gstomp0',stomp1:'gstomp2',stomp2:'gstomp3',dash0:'gdash1',dash1:'gdash2',charge0:'gcharge0',charge1:'gcharge1',charge2:'gcharge2',
   chop0:'gstomp1',chop1:'gstomp1',chop2:'gstomp3',chop3:'gstomp0',groggy0:'gstomp1',groggy1:'gstomp2',groggy2:'gstomp3',groggy3:'gstomp3'};
@@ -1150,7 +1150,7 @@ function ghostRise(B){const p=G.p;
   G.fx.push({k:'ctext',x:B.fx,y:B.fy-330,t:0,dur:1.4,label:'쓰러졌다...?',col:'#c9ccd6',size:22});
   B.q=[A(1.1,{update(dt,k){B.frame='groggy'+Math.min(3,Math.floor(k*4));}}),
     A(1.2,{start(){B.frame='groggy3';},update(dt,k){B.fade=1-k;}}),
-    A(.2,{start(){B.ghost=true;G.broken=SECTORS.map(()=>false);G.falling=[];B.fx=0;B.fy=-160;B.max=Math.round(BOSS_HP*1.25*.5);B.hp=B.max;G.shake=20;
+    A(.2,{start(){B.ghost=true;B.fx=0;B.fy=-160;B.max=Math.round(BOSS_HP*1.25*.5);B.hp=B.max;G.shake=20;
       for(let i=0;i<40;i++){const a=Math.random()*Math.PI*2,r=Math.random()*MAP.R,e=armEnd(0,0,a,r);G.fx.push({k:'mote',x:e.x,y:e.y,tx:B.fx,ty:B.fy-120,t:-Math.random()*.4,dur:1.2});}}}),
     A(1.5,{start(){B.frame='stomp2';G.fx.push({k:'ctext',x:B.fx,y:B.fy-360,t:0,dur:1.8,label:'4페이즈 · 유령 발탄',col:'#8fc8ff',size:26});shockRing(B.fx,B.fy,400);},update(dt,k){B.fade=k;B.frame=k<.5?'stomp2':'stomp1';}}),
     A(.5,{start(){B.frame='walk0';B.fade=1;},end(){B.inv=0;}})];
@@ -1838,7 +1838,7 @@ const AR_SKILLS=[
  {id:'ab',kind:'stack',fam:'ar',icon:'ic_ast4',name:'백 플러쉬',type:'일반',cdSec:2.5,counter:true,opts:['가까운 적','이동 방향'],
   desc:'뒤로 뛰어오르며 앞쪽으로 카드를 흩뿌려요. 스택 1장. 카운터 가능.'},
  {id:'ad',kind:'stack',fam:'ar',icon:'ic_ast5',name:'댄싱 오브 스파인플라워',type:'콤보',cdSec:2.5,opts:['이동 방향'],
-  desc:'고른 방향으로 0.75초간 이동하며 카드를 흩뿌려 4회 공격해요(2회 맞힐 때마다 스택 1장). 이동 중 다시 누르면 처음 자리로 돌아오며 1회 공격해요(스택 1장).'},
+  desc:'고른 방향으로 0.25초 만에 돌진하며 카드를 흩뿌려 4회 공격해요(2회 맞힐 때마다 스택 1장). 1.5초 안에 다시 누르면 처음 자리로 돌아오며 1회 공격해요(스택 1장). 다시 누르지 않으면 돌아오지 않아요.'},
  {id:'rc',kind:'ruin',fam:'ar',icon:'ic_aru1',name:'체크메이트',type:'일반',cdSec:4,opts:['가까운 적','이동 방향'],
   desc:'대상 위치에 카드들을 내리꽂아 1회 공격해요. 맞은 적의 스택을 모두 찢어 장수만큼 추가 피해를 줘요.'},
  {id:'rf',kind:'ruin',fam:'ar',icon:'ic_aru2',name:'포 카드',type:'일반',cdSec:4,counter:true,opts:['가까운 적','이동 방향'],
@@ -1899,12 +1899,11 @@ function ruinC(sk,o={}){const done=new Set(),C=cast(sk,STG['중'],o); // 루인:
 const headOf=e=>e.boss?{x:e.fx,y:e.fy-e.z-330}:{x:e.x,y:e.y-e.r-34};
 /* 사용 */
 function arUse(k){const g=G,p=g.p,A=g.ar;const idx=A.slots[k];if(idx==null)return;const sk=AR_SKILLS[idx];
-  if(p.act&&p.act.ar&&p.act.k==='ad'&&p.act.slot===k&&!p.act.back){p.act.back=1;p.act.bt=0;p.act.fx0=p.x;p.act.fy0=p.y;return;} // 댄싱: 처음 자리로
-  if(p.arCombo&&p.arCombo.slot===k&&!p.act){const c=p.arCombo;p.arCombo=null;arStart(c.sk,k,1,c.C);return;}                       // 스크래치: 내려찍기
+  if(p.arCombo&&p.arCombo.slot===k&&!p.act){const c=p.arCombo;p.arCombo=null;arStart(c.sk,k,1,c.C,c);return;} // 스크래치: 내려찍기 / 스파인플라워: 처음 자리로
   if(p.act||(g.cds[k]||0)>0)return;
   let cd=sk.cdSec*(arBuf('moon')?.8:1);if(A.wheel){A.wheel=false;cd=0;g.fx.push({k:'ctext',x:p.x,y:p.y-CH-60,t:0,dur:.8,label:'재사용 대기시간 0',col:'#e6c27a',size:14});}
   setCd(k,cd);(A.used=A.used||{})[k]=true;arStart(sk,k,0);}
-function arStart(sk,slot,step,C0){const g=G,p=g.p,base={sk,slot,ar:1,t:0,k:sk.id,step,noMove:1};
+function arStart(sk,slot,step,C0,cb){const g=G,p=g.p,base={sk,slot,ar:1,t:0,k:sk.id,step,noMove:1};
   if(sk.id==='aq'){const t=aimOf(sk,650);faceTo(t.a);p.act=Object.assign(base,{dur:.36,a:t.a,thrown:0,C:stackC(sk,2)});return;}
   if(sk.id==='as'){const t=aimOf(sk,320);faceTo(t.a);
     if(step===0){p.act=Object.assign(base,{dur:.3,a:t.a,ox:p.x,oy:p.y,C:stackC(sk,1,{once:1,counter:true})});spr({frames:['fx_ar_scr1'],x:p.x,y:p.y,h:55,a:t.a,ax:.1,sx:1.9,sy:1.3,dur:.3});return;}
@@ -1913,8 +1912,10 @@ function arStart(sk,slot,step,C0){const g=G,p=g.p,base={sk,slot,ar:1,t:0,k:sk.id
     g.ar.zones.push({ax:A1.x,ay:A1.y,bx:B1.x,by:B1.y,cx:c.x,cy:c.y,a,w:150,t:0,dur:.5,tick:0,n:0,C:stackC(sk,1,{once:1})});
     p.act=Object.assign(base,{dur:.12,a});return;}
   if(sk.id==='ab'){const t=aimOf(sk,500);faceTo(t.a);p.act=Object.assign(base,{dur:.42,a:t.a,ox:p.x,oy:p.y,C:stackC(sk,1,{once:1,counter:true})});return;}
-  if(sk.id==='ad'){const ax=axis(),a=ax.m>.2?Math.atan2(ax.y/YS,ax.x):(p.dirA!=null?p.dirA:0);faceTo(a);
-    p.act=Object.assign(base,{dur:.75,a,sx:p.x,sy:p.y,hits:0,C:stackC(sk,2)});return;}
+  if(sk.id==='ad'){ // 0.25초 돌진(4회 공격). 1.5초 안에 다시 누르면 처음 자리로 돌아오며 1회 공격, 안 누르면 그 자리에 남음
+    if(step===1){p.act=Object.assign(base,{dur:.36,back:1,fx0:p.x,fy0:p.y,sx:cb.sx,sy:cb.sy,C:stackC(sk,1,{once:1})});faceTo(gang(p.x,p.y,cb.sx,cb.sy));return;}
+    const ax=axis(),a=ax.m>.2?Math.atan2(ax.y/YS,ax.x):(p.dirA!=null?p.dirA:0);faceTo(a);
+    p.act=Object.assign(base,{dur:.25,a,sx:p.x,sy:p.y,hits:0,C:stackC(sk,2)});return;}
   if(sk.id==='rc'){const t=aimOf(sk,450);faceTo(t.a);const d=Math.min(450,gd(p.x,p.y,t.x,t.y)||300),to=t.e&&t.e.boss?{x:t.x,y:t.y}:armEnd(p.x,p.y,t.a,d);
     p.act=Object.assign(base,{dur:.45,a:t.a,tx:to.x,ty:to.y,C:ruinC(sk)});spr({frames:['fx_ar_check2','fx_ar_check'],x:to.x,y:to.y,h:0,ay:.92,sc:1.6,dur:.55,t:-.12});return;}
   if(sk.id==='rf'){const t=aimOf(sk,650);faceTo(t.a);p.act=Object.assign(base,{dur:.3,a:t.a,C:ruinC(sk,{counter:true})});
@@ -1941,11 +1942,12 @@ function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+
     if(!A_.thrown&&A_.t>=.08){A_.thrown=1;for(let i=0;i<5;i++)G.ar.pr.push({x:p.x,y:p.y,a:A_.a+(i-2)*.2,spd:1250,t:0,delay:0,life:.42,r:34,h:58+p.z,hits:new Set(),C:A_.C,rot:i,pierce:1});
       spr({frames:['fx_ar_back'],x:p.x,y:p.y,h:70,a:A_.a,ax:.05,sx:2,sy:1.5,dur:.3});}}
   else if(A_.k==='ad'){
-    if(A_.back){A_.bt+=dt;const k=Math.min(1,A_.bt/.18);p.x=A_.fx0+(A_.sx-A_.fx0)*k;p.y=A_.fy0+(A_.sy-A_.fy0)*k;
-      if(k>=1&&!A_.fin){A_.fin=1;const C=stackC(sk,1,{once:1});hitCircle(p.x,p.y,230,arD('adr'),C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:2.2,dur:.4});G.shake=Math.max(G.shake,5);}
-      if(A_.bt>=.35){p.act=null;}return;}
-    const m=armEnd(0,0,A_.a,240*dt);moveOn(p,m.x,m.y);
-    while(A_.hits<4&&A_.t>=.08+A_.hits*.18){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
+    if(A_.back){const k=Math.min(1,A_.t/.18);p.x=A_.fx0+(A_.sx-A_.fx0)*k;p.y=A_.fy0+(A_.sy-A_.fy0)*k;
+      if(k>=1&&!A_.fin){A_.fin=1;hitCircle(p.x,p.y,230,arD('adr'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:2.2,dur:.4});G.shake=Math.max(G.shake,5);}
+      if(A_.t>=A_.dur){p.act=null;}return;}
+    const m=armEnd(0,0,A_.a,340/.25*dt);moveOn(p,m.x,m.y);
+    if(A_.t>=A_.dur&&!A_.done){A_.done=1;p.act=null;p.arCombo={slot:A_.slot,sk,until:G.time+1.5,C:A_.C,sx:A_.sx,sy:A_.sy};}
+    while(A_.hits<4&&A_.t>=A_.hits*.065){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
       for(let i=0;i<6;i++){const a=Math.random()*Math.PI*2;G.ar.pr.push({x:p.x,y:p.y,a,spd:700,t:0,delay:9,life:.25,r:1,h:60,hits:new Set(),C:A_.C,rot:i});}}}
   else if(A_.k==='rc'){if(!A_.hit&&A_.t>=.22){A_.hit=1;hitCircle(A_.tx,A_.ty,160,arD('rc'),A_.C);G.shake=Math.max(G.shake,6);}}
   if(p.act===A_&&A_.t>=A_.dur){p.z=0;p.act=null;}
@@ -2002,7 +2004,7 @@ function drawArSlots(cls){if(cls.id!=='arcana')return;const L=skillBarLayout(),i
     const i=G.ar.slots[q.k];if(i==null||slotLocked(q.k))continue;const sk=AR_SKILLS[i];
     ctx.strokeStyle=sk.kind==='ruin'?'rgba(255,90,90,.9)':'rgba(110,160,255,.9)';ctx.lineWidth=2;ctx.strokeRect(q.x+1,q.y+1,q.size-2,q.size-2);
     const ft=G.time-(G.ar.flip[q.k]||-9);if(ft<.25){ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle=`rgba(${sk.kind==='ruin'?'255,120,120':'140,180,255'},${.6*(1-ft/.25)})`;ctx.fillRect(q.x,q.y,q.size,q.size);ctx.restore();}
-    if(G.p.arCombo&&G.p.arCombo.slot===q.k||G.p.act&&G.p.act.ar&&G.p.act.k==='ad'&&G.p.act.slot===q.k&&!G.p.act.back){ctx.strokeStyle=`rgba(200,225,255,${.6+.4*Math.sin(T*20)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
+    if(G.p.arCombo&&G.p.arCombo.slot===q.k){ctx.strokeStyle=`rgba(200,225,255,${.6+.4*Math.sin(T*20)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
   const q=L.find(o=>o.k==='id'),A=inG?G.ar:null,gauge=A?A.gauge:0,full=gauge>=AR_GAUGE;
   ctx.fillStyle='rgba(16,14,26,.96)';ctx.fillRect(q.x,q.y,q.size,q.size);
   const bx=q.x+7,by=q.y+8,bw=10,bh=q.size-16;ctx.fillStyle='#1d1430';ctx.fillRect(bx,by,bw,bh);ctx.fillStyle=full?`rgb(${200+40*Math.sin(T*8)|0},150,255)`:'#9b5cff';ctx.fillRect(bx,by+bh*(1-gauge/AR_GAUGE),bw,bh*gauge/AR_GAUGE);
