@@ -1053,13 +1053,13 @@ function queuePattern(B){
     Q.push(A(.6,{start(){B.frame='dash0';}}));
   }else if(pat==='wipe'){
     // 플레이어 자리로 순간 이동해 그 자리에 고정 → 2.5초 차징 → 앞쪽 270도를 크게 휘두름. 발탄 뒤로 가야 산다. 맞으면 맵 절반 넘게 날아감
-    let dir;
+    let dir,tele,ct=0;const fill=dt=>{ct+=dt;tele.fill=Math.min(1,ct/2.5);}; // 노란 장판이 2.5초 동안 서서히 차오름
     Q.push(A(.35,{start(){B.frame='stomp0';},update(dt,k){B.fade=1-k;}}));
-    Q.push(A(.3,{start(){const p=G.p;dir=gd(B.fx,B.fy,p.x,p.y)>5?gang(B.fx,B.fy,p.x,p.y):(B.face>0?0:Math.PI);B.fx=p.x;B.fy=p.y;B.faceA=dir;B.face=Math.cos(dir)>=0?1:-1;B.frame='charge0';shockRing(B.fx,B.fy,160);G.shake=8;},update(dt,k){B.fade=k;},end(){B.fade=1;}}));
-    Q.push(A(.6,{start(){B.frame='charge0';}}));
-    Q.push(A(.9,{start(){B.frame='charge1';},update(){G.shake=Math.max(G.shake,3);}}));
-    Q.push(A(1.0,{start(){B.frame='charge2';},update(){G.shake=Math.max(G.shake,6);}}));
-    Q.push(A(.5,{start(){B.frame='swing2';G.shake=26;B.faceA=null;const p=G.p,d=gd(B.fx,B.fy,p.x,p.y),pa=d>5?gang(B.fx,B.fy,p.x,p.y):dir;let da=pa-dir;da=Math.atan2(Math.sin(da),Math.cos(da));
+    Q.push(A(.3,{start(){const p=G.p;dir=gd(B.fx,B.fy,p.x,p.y)>5?gang(B.fx,B.fy,p.x,p.y):(B.face>0?0:Math.PI);B.fx=p.x;B.fy=p.y;B.faceA=dir;B.face=Math.cos(dir)>=0?1:-1;B.frame='charge0';shockRing(B.fx,B.fy,160);G.shake=8;tele={k:'sector',x:B.fx,y:B.fy,r:950,a:dir,arc:Math.PI*1.5,yellow:1,fill:0};B.tele.push(tele);},update(dt,k){B.fade=k;},end(){B.fade=1;}}));
+    Q.push(A(.6,{start(){B.frame='charge0';},update:fill}));
+    Q.push(A(.9,{start(){B.frame='charge1';},update(dt){fill(dt);G.shake=Math.max(G.shake,3);}}));
+    Q.push(A(1.0,{start(){B.frame='charge2';},update(dt){fill(dt);G.shake=Math.max(G.shake,6);}}));
+    Q.push(A(.5,{start(){B.tele=B.tele.filter(x=>x!==tele);B.frame='swing2';G.shake=26;B.faceA=null;const p=G.p,d=gd(B.fx,B.fy,p.x,p.y),pa=d>5?gang(B.fx,B.fy,p.x,p.y):dir;let da=pa-dir;da=Math.atan2(Math.sin(da),Math.cos(da));
       G.fx.push({k:'sfan',x:B.fx,y:B.fy,a:dir,r:950,arc:Math.PI*1.5,t:0,dur:.45,col:'140,200,255'});shockRing(B.fx,B.fy,320);
       if((d<60||Math.abs(da)<Math.PI*.75)&&!(p.lock&&(p.lock.k==='fall'||p.lock.k==='throw'))){hurtPlayer(50,true);const t=armEnd(p.x,p.y,pa,800);p.act=null;p.z=0;p.lock={k:'throw',sx:p.x,sy:p.y,tx:t.x,ty:t.y,t:0,dur:.8};}}}));
     Q.push(A(.7,{start(){B.frame='swing3';}}));
@@ -1227,6 +1227,9 @@ function drawTele(t){
   const fill=t.yellow?`rgba(240,200,40,${.22*pulse+.08})`:`rgba(230,40,55,${(t.lock?.32:.2)*pulse+.08})`,line=t.yellow?`rgba(255,220,80,${.75*pulse+.2})`:`rgba(255,${t.lock?120:70},85,${.75*pulse+.2})`;
   ctx.save();
   if(t.k==='circle'){groundPath(()=>{ctx.beginPath();ctx.arc(t.x,t.y/YS,t.r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=line;ctx.lineWidth=4;ctx.stroke();});}
+  else if(t.k==='sector'&&t.fill!=null){groundPath(()=>{const pth=r=>{ctx.beginPath();ctx.moveTo(t.x,t.y/YS);ctx.arc(t.x,t.y/YS,r,t.a-t.arc/2,t.a+t.arc/2);ctx.closePath();}; // 차오르는 장판
+    pth(t.r);ctx.fillStyle='rgba(240,200,40,.07)';ctx.fill();ctx.strokeStyle='rgba(255,220,80,.45)';ctx.lineWidth=3;ctx.stroke();
+    if(t.fill>0){pth(t.r*t.fill);ctx.fillStyle=`rgba(240,200,40,${.22+.14*t.fill})`;ctx.fill();ctx.beginPath();ctx.arc(t.x,t.y/YS,t.r*t.fill,t.a-t.arc/2,t.a+t.arc/2);ctx.strokeStyle=`rgba(255,235,120,${.6+.4*Math.sin(T*20)})`;ctx.lineWidth=5;ctx.stroke();}});}
   else if(t.k==='sector'){groundPath(()=>{ctx.beginPath();ctx.moveTo(t.x,t.y/YS);ctx.arc(t.x,t.y/YS,t.r,t.a-t.arc/2,t.a+t.arc/2);ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=line;ctx.lineWidth=4;ctx.stroke();});}
   else if(t.k==='rect'){groundPath(()=>{ctx.translate(t.x,t.y/YS);ctx.rotate(t.a);ctx.fillStyle=fill;ctx.fillRect(0,-t.w/2,t.len,t.w);ctx.strokeStyle=line;ctx.lineWidth=4;ctx.strokeRect(0,-t.w/2,t.len,t.w);});}
   else if(t.k==='lines'){groundPath(()=>{for(let i=0;i<t.n;i++){const a=t.ang+i*Math.PI*2/t.n;ctx.save();ctx.translate(t.x,t.y/YS);ctx.rotate(a);ctx.fillStyle=fill;ctx.fillRect(0,-t.w/2,t.len,t.w);ctx.strokeStyle=line;ctx.lineWidth=3;ctx.strokeRect(0,-t.w/2,t.len,t.w);ctx.restore();}});}
