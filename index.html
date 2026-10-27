@@ -1593,7 +1593,7 @@ const DH_SKILLS=[
   desc:'키를 누르고 있다가 떼면 대구경 탄환을 쏴요. 1.5초 중 0.85~1.15초(퍼펙트 존)에 떼면 800, 그 밖에는 400. 1.5초가 지나면 자동으로 쏴요.'},
 ];
 DH_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
-const DH_SCALE=1.059*1.2; // 20% 상향, // 데빌헌터 스킬 전체 배율: 공격력 13 기준 스킬만으로 DPS 약 55(기본 공격 없이), 스킬 간 비율 유지
+let DH_SCALE=1.059*.97; // DPS 비율 워로드 1.1 : 데빌헌터 1.35 : 아르카나 1.4 에 맞춤, // 데빌헌터 스킬 전체 배율: 공격력 13 기준 스킬만으로 DPS 약 55(기본 공격 없이), 스킬 간 비율 유지
 const dmgOf=v=>v*DH_SCALE/100; // skHit에 넘길 배수(공격력 100 기준 설계값 v)
 /* 장착: 총마다 Q·E 두 칸 */
 let DH_LO=null;
@@ -1808,7 +1808,8 @@ function arTick(dt){const g=G;if(!g.ar)return;const A=g.ar,p=g.p;
   A.zones=A.zones.filter(z=>z.t<z.dur);
 }
 /* 맞힘: 데미지(0) + 카운터 + 스택/루인 */
-function arD(key){let d=AR_DMG[key]||0;if(arBuf('twisted'))d*=1+Math.random()*.4;return d;} // 뒤틀린 운명: +0~40%
+let AR_SCALE=.516; // 아르카나 전체 배율(DPS 비율 맞추기)
+function arD(key){let d=(AR_DMG[key]||0)*AR_SCALE;if(arBuf('twisted'))d*=1+Math.random()*.4;return d;} // 뒤틀린 운명: +0~40%
 function arStrike(e,C){skHit(e,arD(C.dk||C.sk.id),C);}
 function addStack(e,n){e.arStk=Math.min(4,(e.arStk||0)+n);e.arPop=G.time;}
 function stackC(sk,per=1,o={}){ // 스택 스킬 시전: 한 적에게 per번 맞을 때마다 스택 1장, once면 시전당 1장만. 무력화 최하
@@ -1817,7 +1818,7 @@ function stackC(sk,per=1,o={}){ // 스택 스킬 시전: 한 적에게 per번 �
   return C;}
 function ruinC(sk,o={}){const done=new Set(),C=cast(sk,STG['중'],o); // 루인: 무력화 중, 스택을 터뜨리면 하 추가
   C.onHit=e=>{if(done.has(e))return;done.add(e);const n=e.arStk||0,eff=arBuf('judge')?4:n;
-    if(eff>0){const h=headOf(e);G.fx.push({k:'artear',x:h.x,y:h.y,n:eff,t:0,dur:.75});if(AR_RUIN_BONUS&&e.hp>0)hurtEnemy(e,AR_RUIN_BONUS*eff*G.p.atk*(arBuf('twisted')?1+Math.random()*.4:1));G.shake=Math.max(G.shake,3+eff);if(e.boss)addStagger(e,STG['하']);}
+    if(eff>0){const h=headOf(e);G.fx.push({k:'artear',x:h.x,y:h.y,n:eff,t:0,dur:.75});if(AR_RUIN_BONUS&&e.hp>0)hurtEnemy(e,AR_RUIN_BONUS*AR_SCALE*eff*G.p.atk*(arBuf('twisted')?1+Math.random()*.4:1));G.shake=Math.max(G.shake,3+eff);if(e.boss)addStagger(e,STG['하']);}
     e.arStk=0;if(n)G.ar.gauge=Math.min(AR_GAUGE,G.ar.gauge+n);};
   return C;}
 const headOf=e=>e.boss?{x:e.fx,y:e.fy-e.z-330}:{x:e.x,y:e.y-e.r-34};
