@@ -1769,7 +1769,7 @@ const AR_SKILLS=[
  {id:'rf',kind:'ruin',fam:'ar',icon:'ic_aru2',name:'포 카드',type:'일반',cdSec:4,counter:true,opts:['가까운 적','이동 방향'],
   desc:'카드 4장을 동시에 앞으로 날려 1회 공격해요(가운데 두 장이 살짝 앞서요). 맞은 적의 스택을 모두 찢어요. 카운터 가능.'},
  {id:'rs',kind:'ruin',fam:'ar',icon:'ic_aru3',name:'세렌디피티',type:'일반',cdSec:5,opts:['가까운 적','이동 방향'],
-  desc:'앞쪽 200도로 카드를 펼쳐 공격한 뒤, 카드를 다시 접으며 추가 피해를 줘요. 맞은 적의 스택을 모두 찢어요.'},
+  desc:'즉시 시전. 앞쪽 200도로 카드를 펼쳐 공격한 뒤, 카드를 다시 접으며 추가 피해를 줘요. 맞은 적의 스택을 모두 찢어요.'},
 ];
 AR_SKILLS.forEach(s=>s.cd=s.cdSec+'초');
 /* 데미지(공격력 배수, 타격 1회당). 스택트 스킬은 시전 1번에 총 3.5배 = 워로드·데빌헌터 '하' 스킬(방패 돌진·파이어 불릿·나선의 추적자)과 같은 수준
@@ -1792,7 +1792,7 @@ const arBuf=id=>G&&G.ar&&G.ar.buf[id]>G.time;
 function arInit(){G.ar={slots:{s1:null,s2:null,s3:null,s4:null,id:null},gauge:0,buf:{},show:null,pr:[],zones:[],flip:{},wheel:false};}
 /* 빈 칸(또는 대기시간이 끝난 칸)에 다음 스킬을 랜덤으로 */
 function arRoll(k){const S=G.ar.slots,used=AR_SLOTS.filter(q=>q!==k).map(q=>S[q]),kind=k==='s4'?'ruin':'stack'; // 1~3칸 스택트, 4칸 루인
-  const pool=AR_SKILLS.map((s,i)=>i).filter(i=>AR_SKILLS[i].kind===kind&&!used.includes(i)&&i!==S[k]);S[k]=pool[Math.floor(Math.random()*pool.length)];G.ar.flip[k]=G.time;}
+  const pool=AR_SKILLS.map((s,i)=>i).filter(i=>AR_SKILLS[i].kind===kind&&!used.includes(i)&&i!==S[k]);if(!pool.length)return;S[k]=pool[Math.floor(Math.random()*pool.length)];G.ar.flip[k]=G.time;}
 function arBusy(k){const p=G.p;return (p.act&&p.act.ar&&p.act.slot===k)||(p.arCombo&&p.arCombo.slot===k);}
 function arTick(dt){const g=G;if(!g.ar)return;const A=g.ar,p=g.p;
   for(const k of AR_SLOTS){if(slotLocked(k))continue;if(A.slots[k]==null||(A.used&&A.used[k]&&(g.cds[k]||0)<=0&&!arBusy(k))){if(A.used)A.used[k]=false;arRoll(k);}}
@@ -1802,6 +1802,7 @@ function arTick(dt){const g=G;if(!g.ar)return;const A=g.ar,p=g.p;
     if(q.t>=q.delay)for(const e of foes()){if(q.hits.has(e)||e.hp<=0)continue;const f=footOf(e);if(gd(q.x,q.y,f.x,f.y)<f.r+q.r){q.hits.add(e);arStrike(e,q.C);if(!q.pierce){q.dead=1;break;}}}
     if(q.t>=q.life)q.dead=1;if(q.dead)spr({frames:[q.red?'fx_ar_tear':'fx_ar_mark'],x:q.x,y:q.y,h:q.h,sc:q.red?.35:.3,dur:.18});}
   A.pr=A.pr.filter(q=>!q.dead);
+  for(const l of A.later||[]){l.t-=dt;if(l.t<=0&&!l.done){l.done=1;l.fn();}}A.later=(A.later||[]).filter(l=>!l.done);
   // 차원문 사이
   for(const z of A.zones){z.t+=dt;z.tick-=dt;if(z.tick<=0&&z.n<5){z.tick=.1;z.n++;for(const e of foes()){const f=footOf(e);if(segDist(f.x,f.y,z.ax,z.ay,z.bx,z.by)<z.w/2+f.r*.6)arStrike(e,z.C);}}}
   A.zones=A.zones.filter(z=>z.t<z.dur);
@@ -1843,7 +1844,10 @@ function arStart(sk,slot,step,C0){const g=G,p=g.p,base={sk,slot,ar:1,t:0,k:sk.id
   if(sk.id==='rf'){const t=aimOf(sk,650);faceTo(t.a);p.act=Object.assign(base,{dur:.3,a:t.a,C:ruinC(sk,{counter:true})});
     const C=p.act.C,hit=new Set(),side=t.a+Math.PI/2;[-1.5,-.5,.5,1.5].forEach((o,i)=>{const s=armEnd(p.x,p.y,side,o*42),f=armEnd(s.x,s.y,t.a,(i===1||i===2)?40:0);
       g.ar.pr.push({x:f.x,y:f.y,a:t.a,spd:1500,t:0,delay:0,life:.45,r:46,h:58,red:1,hits:hit,pierce:1,C,rot:0});});p.kick=.2;return;}
-  if(sk.id==='rs'){const t=aimOf(sk,320);faceTo(t.a);p.act=Object.assign(base,{dur:.8,a:t.a,C:ruinC(sk)});return;}
+  if(sk.id==='rs'){const t=aimOf(sk,320);faceTo(t.a);const a=t.a,x=p.x,y=p.y; // 즉시 시전: 바로 펼치고, 접기는 시전 자리에서 따로 진행
+    hitSector(x,y,a,320,Math.PI*200/180,arD('rs'),ruinC(sk));g.fx.push({k:'arfan',x,y,a,t:0,dur:.75});
+    (g.ar.later=g.ar.later||[]).push({t:.43,fn(){hitSector(x,y,a,260,Math.PI*200/180,arD('rs2'),cast(sk,0));const c=armEnd(x,y,a,120);spr({frames:['fx_ar_fold'],x:c.x,y:c.y,h:55,a,ax:.3,sc:1.2,dur:.3});G.shake=Math.max(G.shake,6);}});
+    p.act=Object.assign(base,{dur:.12,a});return;}
 }
 function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+=dt;
   if(A_.k==='aq'){while(A_.thrown<4&&A_.t>=A_.thrown*.083){const i=A_.thrown++,o=(i-1.5)*.07,s=armEnd(p.x,p.y,A_.a,30);
@@ -1868,9 +1872,6 @@ function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+
     while(A_.hits<4&&A_.t>=.08+A_.hits*.18){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
       for(let i=0;i<6;i++){const a=Math.random()*Math.PI*2;G.ar.pr.push({x:p.x,y:p.y,a,spd:700,t:0,delay:9,life:.25,r:1,h:60,hits:new Set(),C:A_.C,rot:i});}}}
   else if(A_.k==='rc'){if(!A_.hit&&A_.t>=.22){A_.hit=1;hitCircle(A_.tx,A_.ty,160,arD('rc'),A_.C);G.shake=Math.max(G.shake,6);}}
-  else if(A_.k==='rs'){
-    if(!A_.h1&&A_.t>=.12){A_.h1=1;hitSector(p.x,p.y,A_.a,320,Math.PI*200/180,arD('rs'),A_.C);G.fx.push({k:'arfan',x:p.x,y:p.y,a:A_.a,t:0,dur:.75});}
-    if(!A_.h2&&A_.t>=.55){A_.h2=1;hitSector(p.x,p.y,A_.a,260,Math.PI*200/180,arD('rs2'),cast(sk,0));const c=armEnd(p.x,p.y,A_.a,120);spr({frames:['fx_ar_fold'],x:c.x,y:c.y,h:55,a:A_.a,ax:.3,sc:1.2,dur:.3});G.shake=Math.max(G.shake,6);}}
   if(p.act===A_&&A_.t>=A_.dur){p.z=0;p.act=null;}
 }
 /* 아이덴티티: 게이지가 차면 덱에서 1장 */
@@ -1914,7 +1915,7 @@ function drawArTear(f,k){const im=IMG.ar_stk,ru=IMG.ar_ruin;const n=f.n,sz=24,ga
     g.addColorStop(0,`rgba(220,235,255,${1-q})`);g.addColorStop(.35,`rgba(70,130,255,${.85*(1-q)})`);g.addColorStop(.7,`rgba(255,60,60,${.6*(1-q)})`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(f.x-r,f.y-r,r*2,r*2);
     const tr=IMG.fx_ar_tear;if(tr){const s=(.5+n*.12)*(1+q*.3);ctx.globalAlpha=1-q;ctx.drawImage(tr,f.x-tr.width*s/2,f.y-tr.height*s*.8,tr.width*s,tr.height*s);}ctx.restore();}
 }
-function drawArFan(f,k){const im=IMG.fx_ar_fan;if(!im)return;const p=G.p;ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=k<.6?1:(1-k)/.4;
+function drawArFan(f,k){const im=IMG.fx_ar_fan;if(!im)return;const p={x:f.x,y:f.y};ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=k<.6?1:(1-k)/.4;
   const fold=k<.5?1:Math.max(.15,1-(k-.5)*3),r=300,N=11;for(let i=0;i<N;i++){const a=f.a+(i/(N-1)-.5)*Math.PI*200/180*fold*Math.min(1,k/.15),e=armEnd(p.x,p.y,a,r*Math.min(1,k/.12+.2)),s=sang(a);
     const ru=IMG.ar_ruin;if(ru){ctx.save();ctx.translate(e.x,e.y-55);ctx.rotate(s+Math.PI/2);ctx.drawImage(ru,-13,-18,26,36);ctx.restore();}}
   ctx.restore();}
