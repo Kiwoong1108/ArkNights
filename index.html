@@ -901,6 +901,9 @@ function drawSkillBar(cls){
     const ck=sk&&sk.gun?sk.id:q.k,cd=scene==='game'&&G&&G.cds[ck]||0;if(cd>0){const f=cd/(G.cdMax[ck]||1);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(q.x+2,q.y+2+(q.size-4)*(1-f),q.size-4,(q.size-4)*f);text(Math.ceil(cd)+'',q.x+q.size/2,q.y+q.size/2,16,'#fff','center');}
     if(scene==='game'&&sk&&sk.counter&&G&&G.boss&&G.boss.counterable&&!cd){ctx.strokeStyle=`rgba(127,211,255,${.6+.4*Math.sin(T*24)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
   drawDhSlots(cls);drawArSlots(cls);
+  if(scene==='game'&&G){const p=G.p;for(const q of skillBarLayout()){if(q.k==='id')continue;const sk=L[q.k]!=null?list[L[q.k]]:null; // 다시 누를 수 있는 남은 시간: 테두리
+    const c=p.arCombo&&p.arCombo.slot===q.k?p.arCombo:p.combo&&(p.combo.slot===q.k||(sk&&p.combo.sk===sk))?p.combo:null;
+    if(c)reuseRing(q.x-3,q.y-3,q.size+6,Math.max(0,(c.until-G.time)/(c.win||.9)));}}
   if(false){let tip=null; // 스킬칸 클릭 키 설정: 설정창으로 되돌림
     for(const q of skillBarLayout()){
       const parts=q.k==='id'&&cls.id==='devilhunter'?[['id2',q.x,q.size/2],['id',q.x+q.size/2,q.size/2]]:q.k==='s2'&&cls.id==='devilhunter'?[]:[[q.k,q.x,q.size]];
@@ -909,6 +912,10 @@ function drawSkillBar(cls){
     if(tip){const t=`클릭: ${BIND_LABEL[tip]} 키 변경`,top=Math.min(...skillBarLayout().map(q=>q.y));ctx.font=`12px ${FONT}`;const tw=ctx.measureText(t).width+16;
       ctx.fillStyle='rgba(8,9,14,.85)';ctx.fillRect(VW/2-tw/2,top-30,tw,22);text(t,VW/2,top-19,12,'#e8c06a','center',false);}}
 }
+/* 재사용 테두리: 12시에서 시작해 시계 방향으로 사라짐 (남은 비율 f) */
+function reuseRing(x,y,s,f){if(f<=0)return;const P=s*4,pt=d=>{d=((d%P)+P)%P;const h=s/2;if(d<h)return [x+h+d,y];d-=h;if(d<s)return [x+s,y+d];d-=s;if(d<s)return [x+s-d,y+s];d-=s;if(d<s)return [x,y+s-d];d-=s;return [x+d,y];};
+  const d0=(1-f)*P,cs=[s/2,s*1.5,s*2.5,s*3.5,P];ctx.save();ctx.strokeStyle='rgba(8,9,14,.8)';ctx.lineWidth=7;ctx.strokeRect(x,y,s,s);
+  ctx.beginPath();ctx.moveTo(...pt(d0));for(const c of cs)if(c>d0)ctx.lineTo(...pt(c));ctx.strokeStyle=f<.3?`rgba(255,${150+100*Math.sin(T*30)|0},120,1)`:'#9ce0ff';ctx.lineWidth=4;ctx.lineCap='square';ctx.stroke();ctx.restore();}
 function drawSkillDrag(){
   if(skillDrag&&skillDrag.started&&skillDrag.core){const sz=52;ctx.globalAlpha=.85;drawCoreIcon(skillDrag.core,skillDrag.x-sz/2,skillDrag.y-sz/2,sz);ctx.globalAlpha=1;return;}
   if(!skillDrag||!skillDrag.started)return;const sk=skillsOf(current)[skillDrag.idx],sz=52,x=skillDrag.x-sz/2,y=skillDrag.y-sz/2;
@@ -1003,7 +1010,7 @@ function walkTo(B,stopDist,maxT){return A(maxT,{start(){B.walkT=0;},update(dt){
 /* 잡기·돌진에 맞았을 때: 들어서 바닥에 2번 내리치고 던짐 (던져진 곳이 바닥 밖이면 낙사) */
 function grabCombo(B,dir){
   const p=G.p;p.lock={k:'held'};p.z=0;B.holdDown=false;B.glow=0;
-  const slamDown=()=>A(.25,{start(){B.frame='chop2';B.holdDown=true;hurtPlayer(14,true);G.shake=14;const h=holdPos(B);crater(h.x,h.y+4,80);shockRing(h.x,h.y,120);}});
+  const slamDown=()=>A(.25,{start(){B.frame='chop2';B.holdDown=true;hurtPlayer(14,true);G.shake=14;const h=holdPos(B);crater(h.x,h.y+4,50);shockRing(h.x,h.y,70);}}); // 내려찍기 범위 축소
   const lift=()=>A(.35,{start(){B.frame='chop3';B.holdDown=false;}});
   B.q.unshift(lift(),slamDown(),lift(),slamDown(),A(.45,{start(){B.frame='grab1';
     const a=dir!=null?dir:(B.face>0?0:Math.PI),s={x:p.x,y:p.y},t=armEnd(p.x,p.y,a,270);t.y+=(Math.random()-.5)*60; // 340 → 270
@@ -1410,7 +1417,7 @@ function counterSpear(src){ // 막기 성공 → 공격한 쪽으로 짧게 돌�
   const p=G.p,a=src?gang(p.x,p.y,src.x,src.y):p.dirA;faceTo(a);p.act=Object.assign(p.act||{},{phase:'strike',t:0,dur:.6,a,noMove:1});
 }
 function endAct(A_){const p=G.p;if(p.act===A_)p.act=null;
-  if(A_.combo){p.combo={slot:A_.slot,sk:A_.sk,step:1,until:G.time+.9};return;}
+  if(A_.combo){p.combo={slot:A_.slot,sk:A_.sk,step:1,until:G.time+.9,win:.9};return;}
   if(A_.k==='sdash'&&A_.core===2)sdashFinisher(A_);
   if(A_.k==='sdash'&&A_.toggle)setCd(A_.slot,cdOf(A_.sk));
   if((A_.k==='bash'&&A_.core===2)||(A_.k==='quake'&&A_.core===2)||A_.k==='ucannon')setCd(A_.slot,cdOf(A_.sk));
@@ -1720,7 +1727,7 @@ function dhFocusShot(A_){ // 조준 중 다시 누르면 1발
   const tip=armEnd(p.x,p.y,A_.a,80);spr({frames:['fx_dh_rbullet'],x:tip.x,y:tip.y,h:55,a:A_.a,ax:0,sx:Math.max(.4,gd(p.x,p.y,A_.tx,A_.ty)/290),sy:.8,dur:.12});
   if(A_.shots>=4)A_.endIn=.25;}
 function dhEnd(A_,cd){const p=G.p;if(p.act===A_)p.act=null;const sk=A_.sk;
-  if(A_.combo&&A_.step+1<A_.combo){p.combo={slot:sk.id,sk,step:A_.step+1,until:G.time+.9};return;}
+  if(A_.combo&&A_.step+1<A_.combo){p.combo={slot:sk.id,sk,step:A_.step+1,until:G.time+.9,win:.9};return;}
   if(A_.defer)setCd(sk.id,cd!=null?cd:sk.cdSec);}
 function dhUpdate(A_,dt){
   const p=G.p,sk=A_.sk;A_.t+=dt;
@@ -1936,7 +1943,7 @@ function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+
   else if(A_.k==='as'&&A_.step===0){ // 돌진하며 베기
     if(A_.t<.16){const m=armEnd(0,0,A_.a,320/.16*dt);moveOn(p,m.x,m.y);}
     else if(!A_.hit){A_.hit=1;hitLine(A_.ox,A_.oy,A_.a,gd(A_.ox,A_.oy,p.x,p.y)+90,140,arD('as'),A_.C);G.shake=Math.max(G.shake,3);}
-    if(A_.t>=A_.dur){p.act=null;p.arCombo={slot:A_.slot,sk,until:G.time+1,C:A_.C};return;}}
+    if(A_.t>=A_.dur){p.act=null;p.arCombo={slot:A_.slot,sk,until:G.time+1,win:1,C:A_.C};return;}}
   else if(A_.k==='as'){ // 내려찍기
     p.z=A_.t<.16?Math.sin(A_.t/.16*Math.PI/2)*70:Math.max(0,70*(1-(A_.t-.16)/.06));
     if(!A_.hit&&A_.t>=.22){A_.hit=1;p.z=0;const c=armEnd(p.x,p.y,A_.a,90);hitCircle(c.x,c.y,170,arD('as2'),A_.C,30);spr({frames:['fx_ar_scr2'],x:c.x,y:c.y,h:0,ay:.85,sc:1.7,dur:.4});G.shake=Math.max(G.shake,7);crater(c.x,c.y,80);}}
@@ -1949,7 +1956,7 @@ function arUpdate(A_,dt){const p=G.p,sk=A_.sk;if(arBuf('madness'))dt*=1.15;A_.t+
       if(k>=1&&!A_.fin){A_.fin=1;hitCircle(p.x,p.y,230,arD('adr'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:2.2,dur:.4});G.shake=Math.max(G.shake,5);}
       if(A_.t>=A_.dur){p.act=null;}return;}
     const m=armEnd(0,0,A_.a,340/.25*dt);moveOn(p,m.x,m.y);
-    if(A_.t>=A_.dur&&!A_.done){A_.done=1;p.act=null;p.arCombo={slot:A_.slot,sk,until:G.time+1.5,C:A_.C,sx:A_.sx,sy:A_.sy};}
+    if(A_.t>=A_.dur&&!A_.done){A_.done=1;p.act=null;p.arCombo={slot:A_.slot,sk,until:G.time+1.5,win:1.5,C:A_.C,sx:A_.sx,sy:A_.sy};}
     while(A_.hits<4&&A_.t>=A_.hits*.065){A_.hits++;hitCircle(p.x,p.y,210,arD('ad'),A_.C);spr({frames:['fx_ar_dance'],x:p.x,y:p.y,h:50,sc:1.9,dur:.45});
       for(let i=0;i<6;i++){const a=Math.random()*Math.PI*2;G.ar.pr.push({x:p.x,y:p.y,a,spd:700,t:0,delay:9,life:.25,r:1,h:60,hits:new Set(),C:A_.C,rot:i});}}}
   else if(A_.k==='rc'){if(!A_.hit&&A_.t>=.22){A_.hit=1;hitCircle(A_.tx,A_.ty,160,arD('rc'),A_.C);G.shake=Math.max(G.shake,6);}}
@@ -2007,7 +2014,7 @@ function drawArSlots(cls){if(cls.id!=='arcana')return;const L=skillBarLayout(),i
     const i=G.ar.slots[q.k];if(i==null||slotLocked(q.k))continue;const sk=AR_SKILLS[i];
     ctx.strokeStyle=sk.kind==='ruin'?'rgba(255,90,90,.9)':'rgba(110,160,255,.9)';ctx.lineWidth=2;ctx.strokeRect(q.x+1,q.y+1,q.size-2,q.size-2);
     const ft=G.time-(G.ar.flip[q.k]||-9);if(ft<.25){ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle=`rgba(${sk.kind==='ruin'?'255,120,120':'140,180,255'},${.6*(1-ft/.25)})`;ctx.fillRect(q.x,q.y,q.size,q.size);ctx.restore();}
-    if(G.p.arCombo&&G.p.arCombo.slot===q.k){ctx.strokeStyle=`rgba(200,225,255,${.6+.4*Math.sin(T*20)})`;ctx.lineWidth=3;ctx.strokeRect(q.x-3,q.y-3,q.size+6,q.size+6);}}
+    }
   const q=L.find(o=>o.k==='id'),A=inG?G.ar:null,gauge=A?A.gauge:0,full=gauge>=AR_GAUGE;
   ctx.fillStyle='rgba(16,14,26,.96)';ctx.fillRect(q.x,q.y,q.size,q.size);
   const bx=q.x+7,by=q.y+8,bw=10,bh=q.size-16;ctx.fillStyle='#1d1430';ctx.fillRect(bx,by,bw,bh);ctx.fillStyle=full?`rgb(${200+40*Math.sin(T*8)|0},150,255)`:'#9b5cff';ctx.fillRect(bx,by+bh*(1-gauge/AR_GAUGE),bw,bh*gauge/AR_GAUGE);
